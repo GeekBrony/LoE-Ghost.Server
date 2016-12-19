@@ -6,6 +6,11 @@ namespace PNetR
 {
     public partial class Player
     {
+        public void Send(NetMessage message, RpcMode mode)
+        {
+            SendMessage(message, mode.ReliabilityMode());
+        }
+
         public void Rpc(byte rpcId)
         {
             var msg = StartMessage(Room, rpcId, ReliabilityMode.Ordered, 0);

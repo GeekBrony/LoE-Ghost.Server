@@ -6,6 +6,11 @@ namespace PNetR
 {
     public partial class NetworkView
     {
+        public void Send(NetMessage message, RpcMode mode)
+        {
+            SendMessage(message, mode);
+        }
+
         private readonly Dictionary<ushort, Dictionary<int, Queue<AContinuation>>> _continuations =
             new Dictionary<ushort, Dictionary<int, Queue<AContinuation>>>();
 

@@ -5,6 +5,16 @@ namespace PNetS
 {
     public partial class Server
     {
+        public void Send(NetMessage message, RpcMode mode)
+        {
+            ImplSendToAllPlayers(message, mode.ReliabilityMode());
+        }
+
+        public void Send(NetMessage message, Player except, RpcMode mode)
+        {
+            ImplSendToAllPlayersExcept(except, message, mode.ReliabilityMode());
+        }
+
         public void AllPlayersRpc<T>(byte rpcId, T arg)
             where T : INetSerializable
         {

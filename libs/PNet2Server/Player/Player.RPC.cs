@@ -5,6 +5,11 @@ namespace PNetS
 {
     public partial class Player
     {
+        public void Send(NetMessage message, RpcMode mode)
+        {
+            SendMessage(message, mode.ReliabilityMode());
+        }
+
         public void PlayerRpc<T>(byte rpcId, T arg)
             where T : INetSerializable
         {
