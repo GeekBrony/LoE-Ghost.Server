@@ -25,7 +25,7 @@ namespace PNetR
                     ProcessStatic(broadcast, reliability, msg);
                     break;
                 default:
-                    Debug.LogWarning($"Unsupported {msg.LengthBytes - 1} byte message of type {msgType} from {this}");
+                    Debug.LogWarning("Unsupported {0} byte message of type {1} from {2}", msg.LengthBytes - 1, msgType, this);
                     break;
             }
         }
@@ -78,11 +78,11 @@ namespace PNetR
                             player.OnNetUserDataChanged();
                         }
                         else
-                            Debug.LogWarning($"Received user data from dispatcher for {pid}, but they don't have a netuserdata set up to deserialize it");
+                            Debug.LogWarning("Received user data from dispatcher for {0}, but they don't have a netuserdata set up to deserialize it", pid);
                     }
                     else
                     {
-                        Debug.LogWarning($"Received user data from dispatcher for {pid}, but they could not be found");
+                        Debug.LogWarning("Received user data from dispatcher for {0}, but they could not be found", pid);
                     }
                     break;
                 case DandRRpcs.RoomAdd:

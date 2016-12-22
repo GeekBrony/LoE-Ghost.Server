@@ -74,7 +74,7 @@ namespace PNetR
         /// Subscribe all the marked rpcs on the supplied object
         /// </summary>
         /// <param name="obj"></param>
-        public void SubscribeRpcsOnObject(object obj)
+        public void SubscribeRpcsOnObject(Object obj)
         {
             RpcSubscriber.SubscribeObject<NetMessageInfo, RpcAttribute>(this, obj, Serializer, Debug.Logger);
         }
@@ -100,7 +100,7 @@ namespace PNetR
             RpcProcessor processor;
             if (!_rpcProcessors.TryGetValue(rpc, out processor))
             {
-                Debug.LogWarning($"Unhandled player RPC {rpc}");
+                Debug.LogWarning("Unhandled player RPC {0}", rpc);
                 info.ContinueForwarding = false;
             }
             else

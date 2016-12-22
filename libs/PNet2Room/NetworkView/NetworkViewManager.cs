@@ -25,6 +25,11 @@ namespace PNetR
             }
         }
 
+        /// <summary>
+        /// For rpcs that are not handled by a subscribed method, either allow or disallow them to continue forwarding
+        /// </summary>
+        public bool AllowUnhandledRpcForwarding { get; set; }
+
         public readonly Room Room;
 
         internal NetworkViewManager(Room room)
@@ -36,17 +41,17 @@ namespace PNetR
         {
             lock (_networkViews)
             {
-                var nid = (ushort)_networkViews.Add(null);
-                var view = new NetworkView(this, nid, owner);
+                var nid = _networkViews.Add(null);
+                var view = new NetworkView(this, (ushort)nid, owner);
                 _networkViews[nid] = view;
                 return view;
             }
         }
 
-        public NetworkView Get(ushort id)
+        public NetworkView Get(NetworkViewId id)
         {
             NetworkView view;
-            _networkViews.TryGetValue(id, out view);
+            _networkViews.TryGetValue(id.Id, out view);
             return view;
         }
 
@@ -89,7 +94,7 @@ namespace PNetR
                 view.IncomingRpc(comp, rpc, msg, info, sub);
             else
             {
-                Debug.LogWarning($"Could not find view {id} to call {comp} rpc {rpc}");
+                Debug.LogWarning("Could not find view {0} to call c {1} rpc {2}", id, comp, rpc);
             }
 
             //todo: filter if rpc mode is all/others/owner, and then send to appropriate people.
@@ -123,7 +128,7 @@ namespace PNetR
                 view.IncomingStream(msg, sender);
             else
             {
-                Debug.LogWarning($"Could not find view {id} to stream to");
+                //Debug.LogWarning("Could not find view {0} to stream to", id);
             }
         }
 

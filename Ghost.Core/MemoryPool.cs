@@ -39,12 +39,15 @@ namespace Ghost.Core
 
         public byte[] Allocate()
         {
-            while (m_pool.TryDequeue(out var item))
+            object item;
+            while (m_pool.TryDequeue(out item))
             {
-                if (item is byte[] strong)
-                    return strong;
-                else if (item is WeakReference<byte[]> weak)
+                if (item is byte[])
+                    return (byte[])item;
+                else if (item is WeakReference<byte[]>)
                 {
+                    var weak = (WeakReference<byte[]>)item;
+                    byte[] strong;
                     if (weak.TryGetTarget(out strong))
                     {
                         weak.SetTarget(null);
@@ -63,7 +66,8 @@ namespace Ghost.Core
             Array.Clear(buffer, 0, buffer.Length);
             if (m_pool.Count >= m_capacity)
             {
-                if (s_refs_pool.TryDequeue(out var weak))
+                WeakReference<byte[]> weak;
+                if (s_refs_pool.TryDequeue(out weak))
                 {
                     weak.SetTarget(buffer);
                     m_pool.Enqueue(weak);

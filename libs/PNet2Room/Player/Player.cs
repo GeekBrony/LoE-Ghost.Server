@@ -12,6 +12,8 @@ namespace PNetR
         /// </summary>
         public Guid Token { get; internal set; }
 
+        public object Connection;
+
         internal readonly Room Room;
 
         /// <summary>
@@ -75,23 +77,24 @@ namespace PNetR
         internal virtual void OnNetUserDataChanged()
         {
 #if DEBUG
-            Debug.Log($"{this} data changed");
+            Debug.Log("{0} data changed", this);
 #endif
-            NetUserDataChanged?.Invoke(this);
+            NetUserDataChanged.Raise(this);
         }
 
         /// <summary>
         /// 
         /// </summary>
-        public void SynchNetData()
+        public bool SynchNetData()
         {
-            if (NetUserData == null) return;
+            if (NetUserData == null) return false;
             var msg = Room.ServerGetMessage(NetUserData.AllocSize + 4);
             msg.Write(RpcUtils.GetHeader(ReliabilityMode.Ordered, BroadcastMode.Server, MsgType.Internal));
             msg.Write(DandRRpcs.SyncNetUser);
             msg.Write(Id);
             NetUserData.OnSerialize(msg);
             Room.Server.SendMessage(msg, ReliabilityMode.Ordered);
+            return true;
         }
 
         /// <summary>
@@ -120,21 +123,18 @@ namespace PNetR
         public void Disconnect(string reason)
         {
             //todo: send disconnect message to PNetS
-            ImplementationDisconnect(reason);
+            Room.Disconnect(this, reason);
         }
-        partial void ImplementationDisconnect(string reason);
 
         internal void AllowConnect()
         {
-            ImplementationAllowConnect();
+            Room.AllowConnect(this);
         }
-        partial void ImplementationAllowConnect();
 
         internal void SendMessage(NetMessage msg, ReliabilityMode mode)
         {
-            ImplementationSendMessage(msg, mode);
+            Room.SendToPlayer(this, msg, mode);
         }
-        partial void ImplementationSendMessage(NetMessage msg, ReliabilityMode mode);
 
         private static Player _serverPlayer;
         public static Player Server

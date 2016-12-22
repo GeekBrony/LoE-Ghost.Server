@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
-
+using System.Collections.Concurrent;
 namespace PNet
 {
     public class SerializationManager
@@ -210,7 +209,6 @@ namespace PNet
             }
             return false;
         }
-
 
         static readonly ConcurrentDictionary<Type, bool> TypesAreINet = new ConcurrentDictionary<Type, bool>();
 

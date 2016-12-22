@@ -29,7 +29,7 @@ namespace PNetS
                     ProcessStatic(broadcast, reliability, msg);
                     break;
                 default:
-                    Debug.LogWarning($"Unsupported {msg.LengthBytes - 1} byte message of type {msgType} from {this}");
+                    Debug.LogWarning("Unsupported {0} byte message of type {1} from {2}", msg.LengthBytes - 1, msgType, this);
                     break;
             }
         }
@@ -90,13 +90,15 @@ namespace PNetS
                         pid = msg.ReadUInt16();
                         player = _server.GetPlayer(pid);
                         if (player != null)
+                        {
                             player.FinishedRoomSwitch();
+                        }
                         break;
                     case DandRRpcs.DisconnectMessage:
                         string reason;
                         if (!msg.ReadString(out reason))
                             reason = "Shutting down";
-                        Debug.Log($"Room disconnecting: {reason}");
+                        Debug.Log("Room disconnecting: {0}", reason);
                         Running = false;
                         break;
                 }

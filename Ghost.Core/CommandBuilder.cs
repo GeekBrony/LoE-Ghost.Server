@@ -120,7 +120,7 @@ namespace Ghost.Core
 
         public ICommandBuilder<T> Handler(CommandHandler handler)
         {
-            if (m_description != null)
+            if (m_handler != null)
                 throw new InvalidOperationException($"Command: {FullName}, handler already specified!");
             m_handler = handler;
             return this;
@@ -178,7 +178,8 @@ namespace Ghost.Core
 
         public void Execute(IUserIdentity user, CommandArgs args)
         {
-            if (args.TryPeek(out var argument))
+            string argument;
+            if (args.TryPeek(out argument))
             {
                 var subName = GetSubCommandName(this, argument);
                 var subCommand = m_manager.Container.Resolve<ICommandHandler>(subName, IfUnresolved.ReturnDefault);

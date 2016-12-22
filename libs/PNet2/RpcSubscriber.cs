@@ -183,7 +183,7 @@ namespace PNet
                         return;
                     if (!serializer.CanSerialize(method.ReturnType))
                     {
-                        logger.Error($"Tried to subscribe method {method} for rpc functions, but return type {method.ReturnType} cannot be serialized");
+                        logger.Error("Tried to subscribe method {0} for rpc functions, but return type {1} cannot be serialized", method, method.ReturnType);
                         return;
                     }
 
@@ -256,7 +256,7 @@ namespace PNet
                         return;
                     if (!serializer.CanSerialize(method.ReturnType))
                     {
-                        logger.Error($"Tried to subscribe method {method} for rpc functions, but return type {method.ReturnType} cannot be serialized");
+                        logger.Error("Tried to subscribe method {0} for rpc functions, but return type {1} cannot be serialized", method, method.ReturnType);
                         return;
                     }
 
@@ -392,7 +392,7 @@ namespace PNet
                 if (parm.ParameterType == typeof (TInfo)) continue;
                 if (ser.CanDeserialize(parm.ParameterType)) continue;
 
-                logger.Warning($"Tried to subscribe method {method}.{parm} for rpc calls, but parameter {method.DeclaringType} cannot be deserialized");
+                logger.Warning("Tried to subscribe method {2}.{0} for rpc calls, but parameter {1} cannot be deserialized", method, parm, method.DeclaringType);
                 return false;
             }
             return true;
@@ -409,11 +409,12 @@ namespace PNet
         public static List<KeyValuePair<byte?, TAttr>> GetAttributes<TAttr>(Type objType, MethodInfo method, Type[] parmTypes) 
             where TAttr : class
         {
-// ReSharper disable once AssignNullToNotNullAttribute
-            var tokens =
-                new List<KeyValuePair<byte?, TAttr>>(
-                    (Attribute.GetCustomAttributes(method, false).Where(a => a is TAttr)).Select(
-                        a => new KeyValuePair<byte?, TAttr>(null, a as TAttr)));
+            var tokens = new List<KeyValuePair<byte?, TAttr>>();
+            foreach (var attr in Attribute.GetCustomAttributes(method, false))
+            {
+                if (attr is TAttr)
+                    tokens.Add(new KeyValuePair<byte?, TAttr>(null, attr as TAttr));
+            }
             FillAttributesFromInterfaces(objType, method, parmTypes, tokens);
             return tokens;
         }
@@ -442,10 +443,11 @@ namespace PNet
                 if (inter.GetNetId(out icid))
                     icidn = icid;
 
-                var tokes =
-                    (Attribute.GetCustomAttributes(interMethod, false).Where(a => a is TAttr)).Select(a => new KeyValuePair<byte?, TAttr>(icidn, a as TAttr));
-// ReSharper disable once AssignNullToNotNullAttribute
-                tokens.AddRange(tokes);
+                foreach (var attr in Attribute.GetCustomAttributes(interMethod, false))
+                {
+                    if (attr is TAttr)
+                        tokens.Add(new KeyValuePair<byte?, TAttr>(icidn, attr as TAttr));
+                }
             }
         }
 

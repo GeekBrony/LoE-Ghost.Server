@@ -8,6 +8,7 @@ using Ghost.Server.Utilities;
 using Ghost.Server.Utilities.Interfaces;
 using PNet;
 using PNetR;
+using PNetR.Impl;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -217,7 +218,7 @@ namespace Ghost.Server.Core.Servers
             _cfg = new NetworkConfiguration(_maxPlayers, _port, Configs.Get<int>(Configs.Map_Tick), _map.Name, dispatcherAddress: Configs.Get<string>(Configs.Server_Host),
                 userDefinedAuthData: $"{ServersMgr.Dedicated}@{GetType().Name}{(ServersMgr.Dedicated ? string.Empty : $"@{ServersMgr.Master.Guid}")}",
                 dispatcherPort: Configs.Get<int>(Configs.Server_Maps_Port), listenAddress: Configs.Get<string>(Configs.Map_Host));
-            _room = new Room(_cfg);
+            _room = new Room(_cfg, new LidgrenRoomServer(), new LidgrenDispatchClient());
             _objects = new ObjectsMgr(this);
             _script = new MapServerScript(this);
             _room.PlayerAdded += Room_PlayerAdded;

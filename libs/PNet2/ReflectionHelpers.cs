@@ -37,11 +37,22 @@ namespace PNet
         /// <returns></returns>
         public static IEnumerable<TypeAttrib<T>> GetTypesWithAttribute<T>(IEnumerable<Assembly> assemblies) where T : Attribute
         {
-            return from a in assemblies
-                from t in a.GetTypes()
-                let attributes = t.GetCustomAttributes<T>(true)
-                where attributes != null && attributes.Length > 0
-                select new TypeAttrib<T> {Type = t, Attributes = attributes};
+            var attribs = new List<TypeAttrib<T>>();
+            foreach (var a in assemblies)
+                try
+                {
+                    foreach (var t in a.GetTypes())
+                    {
+                        var attributes = t.GetCustomAttributes<T>(true);
+                        if (attributes != null && attributes.Length > 0)
+                            attribs.Add(new TypeAttrib<T> {Type = t, Attributes = attributes});
+                    }
+                }
+                catch (ReflectionTypeLoadException)
+                {
+                    
+                }
+            return attribs;
         }
 
         public static IEnumerable<Assembly> GetDependentAssemblies(Assembly analyzedAssembly)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using JetBrains.Annotations;
 
 namespace PNet
 {
@@ -12,6 +13,7 @@ namespace PNet
     /// Only one rpc attribute is valid per rpc id per receiving object (room, networkview, etc). If there are multiple, they are overwritten
     /// </remarks>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+    [MeansImplicitUse]
     public class RpcAttribute : Attribute, IRpcAttribute
     {
         /// <summary>

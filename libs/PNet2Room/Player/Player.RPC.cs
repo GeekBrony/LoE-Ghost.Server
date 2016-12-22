@@ -6,22 +6,20 @@ namespace PNetR
 {
     public partial class Player
     {
-        public void Send(NetMessage message, RpcMode mode)
-        {
-            SendMessage(message, mode.ReliabilityMode());
-        }
-
         public void Rpc(byte rpcId)
         {
             var msg = StartMessage(Room, rpcId, ReliabilityMode.Ordered, 0);
             SendMessage(msg, ReliabilityMode.Ordered);
         }
 
-        public void Rpc<T>(byte rpcId, T arg)
-            where T : INetSerializable
+        public void Rpc(byte rpcId, 
+            INetSerializable arg0)
         {
-            var msg = StartMessage(Room, rpcId, ReliabilityMode.Ordered, arg.AllocSize);
-            arg.OnSerialize(msg);
+            int size = 0;
+            size += arg0.AllocSize;
+
+            var msg = StartMessage(Room, rpcId, ReliabilityMode.Ordered, size);
+            arg0.OnSerialize(msg);
             SendMessage(msg, ReliabilityMode.Ordered);
         }
 
@@ -96,6 +94,14 @@ namespace PNetR
             arg2.OnSerialize(msg);
             arg3.OnSerialize(msg);
             arg4.OnSerialize(msg);
+            SendMessage(msg, ReliabilityMode.Ordered);
+        }
+
+        public void Rpc<T>(byte rpcId, T arg)
+    where T : INetSerializable
+        {
+            var msg = StartMessage(Room, rpcId, ReliabilityMode.Ordered, arg.AllocSize);
+            arg.OnSerialize(msg);
             SendMessage(msg, ReliabilityMode.Ordered);
         }
 

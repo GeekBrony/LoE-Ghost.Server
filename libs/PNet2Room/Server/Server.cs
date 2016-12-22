@@ -6,6 +6,8 @@ namespace PNetR
 {
     public partial class Server : IRpcProvider, IProxySingle<IServerProxy>
     {
+        public object Connection { get; internal set; }
+
         private readonly Room _room;
         internal Server(Room room)
         {
@@ -14,16 +16,15 @@ namespace PNetR
 
         internal void SendMessage(NetMessage msg, ReliabilityMode mode)
         {
-            ImplementationSendMessage(msg, mode);
+            _room.SendToDispatcher(msg, mode);
         }
-        partial void ImplementationSendMessage(NetMessage msg, ReliabilityMode mode);
 
         private void CallRpc(byte rpcId, NetMessage msg)
         {
             var proc = _rpcProcessors[rpcId];
             if (proc == null)
             {
-                Debug.LogWarning($"Unhandled server rpc {rpcId}");
+                Debug.LogWarning("Unhandled server rpc {0}", rpcId);
             }
             else
                 proc(msg);

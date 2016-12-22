@@ -1,15 +1,17 @@
-﻿using Lidgren.Network;
-using PNet;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
+using System.Diagnostics;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using PNet;
+using System.Numerics;
 
 namespace PNetR
 {
     public partial class Room
     {
-        //private bool _shutdownQueued = false;
+        private bool _shutdownQueued = false;
         private readonly Dictionary<int, Player> _players = new Dictionary<int, Player>();
 
         public readonly SerializationManager Serializer = new SerializationManager();
@@ -37,19 +39,27 @@ namespace PNetR
         public event Action<Player> PlayerRemoved;
         public event Action ServerStatusChanged;
 
-        private List<NetIncomingMessage> m_messages;
+        private readonly ARoomServer _roomServer;
+        private readonly ADispatchClient _dispatchClient;
 
-        public Room(NetworkConfiguration configuration)
+        public Room(NetworkConfiguration configuration, ARoomServer roomServer, ADispatchClient dispatchClient)
         {
-            m_messages = new List<NetIncomingMessage>();
+            _roomServer = roomServer;
+            _roomServer.Room = this;
+
+            _dispatchClient = dispatchClient;
+            _dispatchClient.Room = this;
+
             NetworkManager = new NetworkViewManager(this);
             SceneViewManager = new SceneViewManager(this);
             _players[0] = Player.Server;
             NetComponentHelper.FindNetComponents();
 
             Configuration = configuration;
-            ImplConnectionSetup();
-            ImplDispatchSetup();
+            _roomServer.Setup();
+            _dispatchClient.Setup();
+
+            PlayerRemoved += OnPlayerRemoved;
         }
 
         /// <summary>
@@ -57,32 +67,24 @@ namespace PNetR
         /// </summary>
         public void StartConnection()
         {
-            ImplRoomStart();
-            ImplDispatchConnect();
+            _roomServer.Start();
+            _dispatchClient.Connect();
         }
-        partial void ImplRoomStart();
-        partial void ImplDispatchConnect();
-        partial void ImplConnectionSetup();
-        partial void ImplDispatchSetup();
 
         public void ReadQueue()
         {
-            ImplRoomRead();
-            ImplDispatchRead();
+            _roomServer.ReadQueue();
+            _dispatchClient.ReadQueue();
         }
-        partial void ImplRoomRead();
-        partial void ImplDispatchRead();
 
         public void Shutdown(string reason = "Shutting down")
         {
-            //_shutdownQueued = true;
-            ImplDispatchDisconnect(reason);
-            ImplRoomDisconnect(reason);
+            _shutdownQueued = true;
+            _dispatchClient.Disconnect(reason);
+            _roomServer.Shutdown(reason);
         }
 
-        partial void ImplRoomDisconnect(string reason);
-        partial void ImplDispatchDisconnect(string reason);
-
+        [JetBrains.Annotations.CanBeNull]
         public Player GetPlayer(int id)
         {
             Player player;
@@ -92,7 +94,6 @@ namespace PNetR
 
         private void OnPlayerRemoved(Player player)
         {
-            PlayerRemoved?.Invoke(player);
             foreach (var view in NetworkManager.AllViews)
             {
                 if (view == null)
@@ -184,7 +185,7 @@ namespace PNetR
 
             var msg = GetDestroyMessage(view, RandPRpcs.Destroy, reasonCode);
 
-            ImplSendToPlayers(msg, ReliabilityMode.Ordered);
+            SendToPlayers(msg, ReliabilityMode.Ordered);
             return true;
         }
 
@@ -201,21 +202,24 @@ namespace PNetR
 
         internal NetMessage RoomGetMessage(int size)
         {
-            NetMessage msg = null;
-            ImplRoomGetMessage(size, ref msg);
-            return msg;
+            return _roomServer.GetMessage(size);
         }
-
-        partial void ImplRoomGetMessage(int size, ref NetMessage msg);
 
         internal NetMessage ServerGetMessage(int size)
         {
-            NetMessage msg = null;
-            ImplServerGetMessage(size, ref msg);
-            return msg;
+            return _dispatchClient.GetMessage(size);
         }
 
-        partial void ImplServerGetMessage(int size, ref NetMessage msg);
+        internal void UpdateDispatchConnectionStatus(ConnectionStatus status)
+        {
+            ServerStatus = status;
+            ServerStatusChanged.Raise();
+        }
+
+        internal void SendToDispatcher(NetMessage msg, ReliabilityMode mode)
+        {
+            _dispatchClient.SendMessage(msg, mode);
+        }
 
         public string GetWholeState()
         {

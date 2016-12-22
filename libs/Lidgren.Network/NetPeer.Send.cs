@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Net;
 
+#if !__NOIPENDPOINT__
+using NetEndPoint = System.Net.IPEndPoint;
+#endif
+
 namespace Lidgren.Network
 {
 	public partial class NetPeer
@@ -100,9 +104,17 @@ namespace Lidgren.Network
 			if (msg == null)
 				throw new ArgumentNullException("msg");
 			if (recipients == null)
+			{
+				if (msg.m_isSent == false)
+					Recycle(msg);
 				throw new ArgumentNullException("recipients");
+			}
 			if (recipients.Count < 1)
+			{
+				if (msg.m_isSent == false)
+					Recycle(msg);
 				throw new NetException("recipients must contain at least one item");
+			}
 			if (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered)
 				NetException.Assert(sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
 			if (msg.m_isSent)
@@ -153,18 +165,18 @@ namespace Lidgren.Network
 			msg.m_isSent = true;
 			msg.m_messageType = NetMessageType.Unconnected;
 
-			IPAddress adr = NetUtility.Resolve(host);
+			var adr = NetUtility.Resolve(host);
 			if (adr == null)
 				throw new NetException("Failed to resolve " + host);
 
 			Interlocked.Increment(ref msg.m_recyclingCount);
-			m_unsentUnconnectedMessages.Enqueue(new Tuple<IPEndPoint, NetOutgoingMessage>(new IPEndPoint(adr, port), msg));
+			m_unsentUnconnectedMessages.Enqueue(new Tuple<NetEndPoint, NetOutgoingMessage>(new NetEndPoint(adr, port), msg));
 		}
 
 		/// <summary>
 		/// Send a message to an unconnected host
 		/// </summary>
-		public void SendUnconnectedMessage(NetOutgoingMessage msg, IPEndPoint recipient)
+		public void SendUnconnectedMessage(NetOutgoingMessage msg, NetEndPoint recipient)
 		{
 			if (msg == null)
 				throw new ArgumentNullException("msg");
@@ -179,13 +191,13 @@ namespace Lidgren.Network
 			msg.m_isSent = true;
 
 			Interlocked.Increment(ref msg.m_recyclingCount);
-			m_unsentUnconnectedMessages.Enqueue(new Tuple<IPEndPoint, NetOutgoingMessage>(recipient, msg));
+			m_unsentUnconnectedMessages.Enqueue(new Tuple<NetEndPoint, NetOutgoingMessage>(recipient, msg));
 		}
 
 		/// <summary>
 		/// Send a message to an unconnected host
 		/// </summary>
-		public void SendUnconnectedMessage(NetOutgoingMessage msg, IList<IPEndPoint> recipients)
+		public void SendUnconnectedMessage(NetOutgoingMessage msg, IList<NetEndPoint> recipients)
 		{
 			if (msg == null)
 				throw new ArgumentNullException("msg");
@@ -202,8 +214,8 @@ namespace Lidgren.Network
 			msg.m_isSent = true;
 
 			Interlocked.Add(ref msg.m_recyclingCount, recipients.Count);
-			foreach(IPEndPoint ep in recipients)
-				m_unsentUnconnectedMessages.Enqueue(new Tuple<IPEndPoint, NetOutgoingMessage>(ep, msg));
+			foreach (NetEndPoint ep in recipients)
+				m_unsentUnconnectedMessages.Enqueue(new Tuple<NetEndPoint, NetOutgoingMessage>(ep, msg));
 		}
 
 		/// <summary>
@@ -231,7 +243,7 @@ namespace Lidgren.Network
 			im.m_isFragment = false;
 			im.m_receiveTime = NetTime.Now;
 			im.m_senderConnection = null;
-			im.m_senderEndPoint = m_socket.LocalEndPoint as IPEndPoint;
+			im.m_senderEndPoint = m_socket.LocalEndPoint as NetEndPoint;
 			NetException.Assert(im.m_bitLength == om.LengthBits);
 
 			// recycle outgoing message

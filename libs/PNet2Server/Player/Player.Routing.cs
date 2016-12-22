@@ -1,5 +1,9 @@
-﻿using PNet;
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using PNet;
 
 namespace PNetS
 {
@@ -28,7 +32,7 @@ namespace PNetS
                     ProcessStatic(msg, info);
                     break;
                 default:
-                    Debug.LogWarning($"Unsupported {msg.LengthBytes - 1} byte message of type {msgType} from {this}");
+                    Debug.LogWarning("Unsupported {0} byte message of type {1} from {2}", msg.LengthBytes - 1, msgType, this);
                     break;
             }
         }

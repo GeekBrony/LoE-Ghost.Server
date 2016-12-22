@@ -1,41 +1,42 @@
-﻿using System.Net;
-using System.Threading;
-using PNet;
-#if LIDGREN
-using Lidgren.Network;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Lidgren.Network;
+using PNet;
 
-namespace PNetS
+namespace PNetS.Impl
 {
-    public partial class Server
+    public class LidgrenDispatchServer : ADispatchServer
     {
         internal NetServer RoomServer { get; private set; }
         internal NetServer PlayerServer { get; private set; }
 
-        partial void InternalInitialize()
+        protected internal override void Initialize()
         {
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
 
             //set up room server
-            var roomConfig = new NetPeerConfiguration(Configuration.AppIdentifier + "DPT");
+            var roomConfig = new NetPeerConfiguration(Server.Configuration.AppIdentifier + "DPT");
+
             roomConfig.AutoFlushSendQueue = true;
-            roomConfig.Port = Configuration.RoomListenPort;
-            roomConfig.MaximumConnections = Configuration.MaximumRooms;
+            roomConfig.Port = Server.Configuration.RoomListenPort;
+            roomConfig.MaximumConnections = Server.Configuration.MaximumRooms;
             roomConfig.SetMessageTypeEnabled(NetIncomingMessageType.ConnectionApproval, true);
-            
+
             RoomServer = new NetServer(roomConfig);
             RoomServer.RegisterReceivedCallback(RoomCallback);
             RoomServer.Start();
-            
+
             //set up player server
-            var playerConfig = new NetPeerConfiguration(Configuration.AppIdentifier);
+            var playerConfig = new NetPeerConfiguration(Server.Configuration.AppIdentifier);
+
             playerConfig.AutoFlushSendQueue = true;
-            playerConfig.Port = Configuration.PlayerListenPort;
-            playerConfig.MaximumConnections = Configuration.MaximumPlayers;
+            playerConfig.Port = Server.Configuration.PlayerListenPort;
+            playerConfig.MaximumConnections = Server.Configuration.MaximumPlayers;
             playerConfig.SetMessageTypeEnabled(NetIncomingMessageType.ConnectionApproval, true);
 
 #if DEBUG
@@ -51,17 +52,12 @@ namespace PNetS
             PlayerServer.Start();
         }
 
-        partial void ImplementationShutdown(string reason)
-        {
-            RoomServer.Shutdown(reason);
-            PlayerServer.Shutdown(reason);
-        }
-
+        #region rooms
         private void RoomCallback(object peer)
         {
             var netPeer = peer as NetServer;
             if (netPeer == null) return;
-            
+
             var lmsg = netPeer.ReadMessage();
 
             var msgType = lmsg.MessageType;
@@ -77,10 +73,10 @@ namespace PNetS
             {
                 var room = GetRoom(sConn);
                 if (room != null)
-                    room.ConsumeData(msg);
+                    ConsumeData(room, msg);
                 else
                 {
-                    Debug.LogError($"Unknown room {sender} sent {msg.LengthBytes} bytes of data");
+                    Debug.LogError("Unknown room {0} sent {1} bytes of data", sender, msg.LengthBytes);
                     sConn.Disconnect(DtoRMsgs.UnknownRoom);
                 }
             }
@@ -106,9 +102,6 @@ namespace PNetS
                     }
 
                     AddRoom(room);
-                    UpdateRoomsOfNewRoom(room);
-
-                    Debug.Log($"Room connected: {room.RoomId} - {sender} @ {room.Address}");
                 }
                 else if (status == NetConnectionStatus.Disconnecting || status == NetConnectionStatus.Disconnected)
                 {
@@ -122,7 +115,7 @@ namespace PNetS
                     }
                 }
 
-                Debug.Log($"Room status: {status}, {statusReason}");
+                Debug.Log("Room status: {0}, {1}", status, statusReason);
             }
             else if (msgType == NetIncomingMessageType.WarningMessage)
             {
@@ -130,7 +123,7 @@ namespace PNetS
             }
             else if (msgType == NetIncomingMessageType.Error)
             {
-                Debug.LogException(new Exception(msg.ReadString()){Source = "Server.Lidgren.RoomCallback [Errored Lidgren Message]"}); //this should really never happen...
+                Debug.LogException(new Exception(msg.ReadString()) { Source = "Server.Lidgren.RoomCallback [Errored Lidgren Message]" }); //this should really never happen...
             }
 
             NetMessage.RecycleMessage(msg);
@@ -159,7 +152,9 @@ namespace PNetS
         {
             return connection.Tag as Room;
         }
+        #endregion
 
+        #region players
         private void PlayerCallback(object peer)
         {
             var netPeer = peer as NetServer;
@@ -180,10 +175,10 @@ namespace PNetS
             {
                 var player = GetPlayer(sConn);
                 if (player != null)
-                    player.ConsumeData(msg);
+                    ConsumeData(player, msg);
                 else
                 {
-                    Debug.LogError($"Unknown player {sender} sent {msg.LengthBytes} bytes of data");
+                    Debug.LogError("Unknown player {0} sent {1} bytes of data", sender, msg.LengthBytes);
                     sConn.Disconnect(DtoPMsgs.UnknownPlayer);
                 }
             }
@@ -193,24 +188,11 @@ namespace PNetS
             }
             else if (msgType == NetIncomingMessageType.ConnectionApproval)
             {
-                var player = new Player(this) {Connection = sConn};
-                sConn.Tag = player;
-                player.Status = ConnectionStatus.Connecting;
-                if (ConstructNetData != null)
-                    player.NetUserData = ConstructNetData();
-
-                if (VerifyPlayer != null)
-                {
-                    VerifyPlayer(player, msg);
-                }
-                else
-                {
-                    player.AllowConnect();
-                }
+                PlayerAttemptingConnection(sConn, sConn.RemoteEndPoint, player => sConn.Tag = player, msg);
             }
             else if (msgType == NetIncomingMessageType.StatusChanged)
             {
-                var status = (NetConnectionStatus) msg.ReadByte();
+                var status = (NetConnectionStatus)msg.ReadByte();
                 var statusReason = msg.ReadString();
                 var player = GetPlayer(sConn);
                 if (player != null)
@@ -230,7 +212,7 @@ namespace PNetS
                     {
                         FinalizePlayerAdd(player);
                     }
-                    Debug.Log($"Player status: {player.Status}, {statusReason}");
+                    Debug.Log("Player status: {0} {2}, {1}", player.Status, statusReason, player.Id);
                 }
                 else if (status == NetConnectionStatus.RespondedAwaitingApproval)
                 {
@@ -238,7 +220,7 @@ namespace PNetS
                 }
                 else
                 {
-                    Debug.Log($"Unknown player {sConn} status: {status}, {statusReason}");
+                    Debug.Log("Unknown player {0} status: {1}, {2}", sConn, status, statusReason);
                 }
             }
             else if (msgType == NetIncomingMessageType.WarningMessage)
@@ -259,8 +241,9 @@ namespace PNetS
         {
             return connection.Tag as Player;
         }
+        #endregion
 
-        partial void ImplSendToAllPlayers(NetMessage msg, ReliabilityMode mode)
+        protected internal override void SendToAllPlayers(NetMessage msg, ReliabilityMode mode)
         {
             var lmsg = PlayerServer.CreateMessage(msg.Data.Length);
             msg.Clone(lmsg);
@@ -270,7 +253,7 @@ namespace PNetS
             var method = mode.PlayerDelivery(out seq);
             PlayerServer.SendToAll(lmsg, null, method, seq);
         }
-        partial void ImplSendToAllPlayersExcept(Player player, NetMessage msg, ReliabilityMode mode)
+        protected internal override void SendToAllPlayersExcept(Player player, NetMessage msg, ReliabilityMode mode)
         {
             var lmsg = PlayerServer.CreateMessage(msg.Data.Length);
             msg.Clone(lmsg);
@@ -278,14 +261,77 @@ namespace PNetS
 
             int seq;
             var method = mode.PlayerDelivery(out seq);
-            PlayerServer.SendToAll(lmsg, player.Connection, method, seq);
+            PlayerServer.SendToAll(lmsg, player.Connection as NetConnection, method, seq);
         }
 
-        partial void ImplGetMessage(int length, ref NetMessage message)
+        protected internal override NetMessage GetMessage(int length)
         {
-            message = NetMessage.GetMessage(length);
+            return NetMessage.GetMessage(length);
+        }
+
+        protected internal override async Task Shutdown(string reason)
+        {
+            RoomServer.Shutdown(reason);
+            PlayerServer.Shutdown(reason);
+
+            while (RoomServer.Status != NetPeerStatus.NotRunning || PlayerServer.Status != NetPeerStatus.NotRunning)
+            {
+                await Task.Delay(10);
+            }
+        }
+
+        protected internal override void SendToPlayer(Player player, NetMessage msg, ReliabilityMode mode, bool recycle)
+        {
+            var lmsg = PlayerServer.CreateMessage(msg.Data.Length);
+            msg.Clone(lmsg);
+            if (recycle)
+                NetMessage.RecycleMessage(msg);
+
+            int seq;
+            var method = mode.PlayerDelivery(out seq);
+            PlayerServer.SendMessage(lmsg, player.Connection as NetConnection, method, seq);
+        }
+
+        protected internal override void AllowPlayerToConnect(Player player)
+        {
+            var lmsg = PlayerServer.CreateMessage(2);
+            lmsg.Write(player.Id);
+            (player.Connection as NetConnection).Approve(lmsg);
+        }
+
+        protected internal override void Disconnect(Player player, string reason)
+        {
+            (player.Connection as NetConnection).Disconnect(reason);
+        }
+
+        protected internal override void SendToRoom(Room room, NetMessage msg, ReliabilityMode mode)
+        {
+            var lmsg = RoomServer.CreateMessage(msg.Data.Length);
+            msg.Clone(lmsg);
+            NetMessage.RecycleMessage(msg);
+
+            var method = mode.RoomDelivery();
+            RoomServer.SendMessage(lmsg, room.Connection as NetConnection, method);
+        }
+
+        protected internal override void SendToOtherRooms(Room except, NetMessage msg, ReliabilityMode mode)
+        {
+            var lmsg = RoomServer.CreateMessage(msg.Data.Length);
+            msg.Clone(lmsg);
+            NetMessage.RecycleMessage(msg);
+
+            var method = mode.RoomDelivery();
+            RoomServer.SendToAll(lmsg, except.Connection as NetConnection, method, 0);
+        }
+
+        protected internal override void SendToAllRooms(NetMessage msg, ReliabilityMode mode)
+        {
+            var lmsg = RoomServer.CreateMessage(msg.Data.Length);
+            msg.Clone(lmsg);
+            NetMessage.RecycleMessage(msg);
+
+            var method = mode.RoomDelivery();
+            RoomServer.SendToAll(lmsg, method);
         }
     }
-
 }
-#endif

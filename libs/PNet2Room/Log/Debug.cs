@@ -17,25 +17,31 @@ namespace PNetR
         /// Info message
         /// </summary>
         /// <param name="value"></param>
-        public static void Log(string value)
+        /// <param name="args"></param>
+        [JetBrains.Annotations.StringFormatMethod("value")]
+        public static void Log(string value, params object[] args)
         {
-            Logger.Info(value);
+            Logger.Info(value, args);
         }
         /// <summary>
         /// Error message
         /// </summary>
         /// <param name="value"></param>
-        public static void LogError(string value)
+        /// <param name="args"></param>
+        [JetBrains.Annotations.StringFormatMethod("value")]
+        public static void LogError(string value, params object[] args)
         {
-            Logger.Error(value);
+            Logger.Error(value, args);
         }
         /// <summary>
         /// Warning message
         /// </summary>
         /// <param name="value"></param>
-        public static void LogWarning(string value)
+        /// <param name="args"></param>
+        [JetBrains.Annotations.StringFormatMethod("value")]
+        public static void LogWarning(string value, params object[] args)
         {
-            Logger.Warning(value);
+            Logger.Warning(value, args);
         }
 
         /// <summary>
@@ -43,9 +49,11 @@ namespace PNetR
         /// </summary>
         /// <param name="exception"></param>
         /// <param name="value"></param>
-        public static void LogException(Exception exception, string value)
+        /// <param name="args"></param>
+        [JetBrains.Annotations.StringFormatMethod("value")]
+        public static void LogException(Exception exception, string value, params object[] args)
         {
-            Logger.Exception(exception, value);
+            Logger.Exception(exception, value, args);
         }
 
         /// <summary>

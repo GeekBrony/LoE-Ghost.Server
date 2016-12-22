@@ -8,11 +8,6 @@ namespace PNetR
 {
     public partial class Server
     {
-        public void Send(NetMessage message, RpcMode mode)
-        {
-            SendMessage(message, mode.ReliabilityMode());
-        }
-
         public void Rpc(byte rpcId, params object[] args)
         {
             Rpc(rpcId, RpcMode.ServerOrdered, args);

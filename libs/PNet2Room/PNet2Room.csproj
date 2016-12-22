@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>PNetR</RootNamespace>
     <AssemblyName>PNet2Room</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -17,21 +17,20 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
     <DefineConstants>TRACE;DEBUG;R_LIDGREN;S_LIDGREN</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>none</DebugType>
+    <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\..\bin\Release\</OutputPath>
     <DefineConstants>TRACE;R_LIDGREN;S_LIDGREN</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>
-    </DocumentationFile>
+    <DocumentationFile>..\..\bin\Release\PNet2Room.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -46,7 +45,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
     <DefineConstants>TRACE;R_LIDGREN;S_LIDGREN</DefineConstants>
+    <DocumentationFile>..\..\bin\Release\PNet2Room.XML</DocumentationFile>
     <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
@@ -54,20 +55,19 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Numerics.Vectors, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\System.Numerics.Vectors.4.3.0\lib\portable-net45+win8+wp8+wpa81\System.Numerics.Vectors.dll</HintPath>
+      <HintPath>..\..\packages\System.Numerics.Vectors.4.3.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Extensions.cs" />
     <Compile Include="Log\Debug.cs" />
     <Compile Include="Log\NetworkLogLevel.cs" />
     <Compile Include="NetworkConfiguration.cs" />
     <Compile Include="NetworkView\Continuation.cs" />
     <Compile Include="NetworkView\NetMessageInfo.cs" />
-    <Compile Include="NetworkView\NetSceneView.Lidgren.cs" />
     <Compile Include="NetworkView\NetworkedSceneView.cs" />
-    <Compile Include="NetworkView\NetworkView.Lidgren.cs" />
     <Compile Include="NetworkView\RpcProcessor.cs" />
     <Compile Include="NetworkView\SceneViewManager.cs" />
     <Compile Include="OwnerOnlyAttribute.cs" />
@@ -78,21 +78,22 @@
     <Compile Include="NetworkView\NetworkView.RPC.cs" />
     <Compile Include="NetworkView\NetworkViewManager.cs" />
     <Compile Include="Player\Player.cs" />
-    <Compile Include="Player\Player.Lidgren.cs" />
     <Compile Include="Player\Player.RPC.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Proxy\ISceneViewProxy.cs" />
+    <Compile Include="Room\ADispatchClient.cs" />
+    <Compile Include="Room\ARoomServer.cs" />
+    <Compile Include="Room\Impl\LidgrenDispatchClient.cs" />
+    <Compile Include="Room\Impl\LidgrenRoomServer.cs" />
+    <Compile Include="Room\Impl\TcpDispatchClient.cs" />
     <Compile Include="Room\Room.cs" />
-    <Compile Include="Room\Room.DispatchLidgren.cs" />
-    <Compile Include="Room\Room.DispatchTcp.cs" />
-    <Compile Include="Room\Room.RoomLidgren.cs" />
     <Compile Include="Room\Room.Players.cs" />
     <Compile Include="Proxy\IServerProxy.cs" />
     <Compile Include="Room\Room.RPC.cs" />
-    <Compile Include="Server\Server.Tcp.cs" />
-    <Compile Include="Server\Server.Lidgren.cs" />
     <Compile Include="Server\Server.Routing.cs" />
     <Compile Include="Server\Server.RPC.cs" />
     <Compile Include="Server\Server.cs" />
+    <Compile Include="Utils\DelegateExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Lidgren.Network\Lidgren.Network.csproj">

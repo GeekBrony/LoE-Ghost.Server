@@ -52,6 +52,7 @@
   <ItemGroup>
     <Reference Include="DryIoc, Version=2.9.4.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\DryIoc.dll.2.9.4\lib\net45\DryIoc.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
@@ -60,21 +61,38 @@
     <Reference Include="System.Numerics" />
     <Reference Include="System.Numerics.Vectors, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Numerics.Vectors.4.3.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Reflection, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Reflection.4.3.0\lib\net462\System.Reflection.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Runtime, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Runtime.4.3.0\lib\net462\System.Runtime.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Runtime.Extensions, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Runtime.Extensions.4.3.0\lib\net462\System.Runtime.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Dataflow, Version=4.5.24.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Tpl.Dataflow.4.5.24\lib\portable-net45+win8+wpa81\System.Threading.Tasks.Dataflow.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Buffers\NetBufferLE.cs" />
+    <Compile Include="Buffers\NetBuffersManager.cs" />
+    <Compile Include="Buffers\NetIncomingMessageLE.cs" />
+    <Compile Include="Buffers\NetMemoryManager.cs" />
+    <Compile Include="Buffers\NetMessageLE.cs" />
+    <Compile Include="Buffers\NetOutgoingMessageLE.cs" />
+    <Compile Include="NetConnection.cs" />
     <Compile Include="NetMessage.cs" />
+    <Compile Include="NetPeer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RpcProxyGenerator.cs" />
+    <Compile Include="Utilities\NetBufferCollection.cs" />
     <Compile Include="Utilities\ReflectionExt.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -82,20 +100,9 @@
       <Project>{ae447999-c0d0-44c1-aafa-dae071951d0c}</Project>
       <Name>Ghost.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\libs\PNet2Room\PNet2Room.csproj">
-      <Project>{0539b54a-555c-46a4-bb85-540678faa8b1}</Project>
-      <Name>PNet2Room</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\libs\PNet2Server\PNet2Server.csproj">
-      <Project>{1ccddb57-d001-46be-a685-5da4c5ac9df4}</Project>
-      <Name>PNet2Server</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\libs\PNet2\PNet2.csproj">
-      <Project>{ebac22f9-499d-4c46-bace-6877585796ac}</Project>
-      <Name>PNet2</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

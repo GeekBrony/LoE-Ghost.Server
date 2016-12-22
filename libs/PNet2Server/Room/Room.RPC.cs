@@ -9,11 +9,6 @@ namespace PNetS
 {
     public partial class Room
     {
-        public void Send(NetMessage message, RpcMode mode)
-        {
-            SendMessage(message, mode.ReliabilityMode());
-        }
-
         public void Rpc(byte rpcId, params object[] args)
         {
             var size = 0;

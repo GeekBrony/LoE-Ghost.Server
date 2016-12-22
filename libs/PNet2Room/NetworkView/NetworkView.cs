@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using PNet;
-using System.Linq;
+using PNetR.Utils;
 using System.Numerics;
 
 namespace PNetR
@@ -14,6 +14,10 @@ namespace PNetR
         public readonly NetworkViewManager Manager;
         private Player _owner;
         public readonly ushort Id;
+
+        public object OwnerConnection;
+        public readonly List<object> Observers = new List<object>();
+        public readonly List<object> ObserversAndOwner = new List<object>();
         
         internal NetworkView(NetworkViewManager networkViewManager, ushort networkId, Player owner)
         {
@@ -32,12 +36,19 @@ namespace PNetR
             }
         }
 
-        partial void ImplOwnerChanged();
+        void ImplOwnerChanged()
+        {
+            ObserversAndOwner.Remove(OwnerConnection);
+            if (!Owner.IsValid) return;
+            OwnerConnection = Owner.Connection;
+            ObserversAndOwner.Add(OwnerConnection);
+        }
 
         public string Resource { get; internal set; }
         public Room Room { get { return Manager.Room; } }
 
         public event Action<Player> FinishedInstantiation;
+        public INetSerializable MoreInstantiates;
         public event Action<NetMessage, Player> ReceivedStream;
         public event Func<Vector3> GettingPosition;
         public event Func<Vector3> GettingRotation;
@@ -51,17 +62,22 @@ namespace PNetR
             //we already have the player added to the connections list, as it was set when we set the Owner.
             if (Owner == player)
                 return true;
-          
+
             var vis = CheckVisibility?.Invoke(player) ?? true;
             if (vis)
             {
                 ImplObservePlayer(player);
                 _visibility.Add(player);
             }
+
             return vis;
         }
 
-        partial void ImplObservePlayer(Player player);
+        void ImplObservePlayer(Player player)
+        {
+            Observers.Add(player.Connection);
+            ObserversAndOwner.Add(player.Connection);
+        }
 
         internal void OnPlayerLeftRoom(Player player)
         {
@@ -69,7 +85,11 @@ namespace PNetR
             ImplIgnorePlayer(player);
         }
 
-        partial void ImplIgnorePlayer(Player player);
+        void ImplIgnorePlayer(Player player)
+        {
+            Observers.Remove(player.Connection);
+            ObserversAndOwner.Remove(player.Connection);
+        }
 
         public void RebuildVisibility()
         {
@@ -85,7 +105,7 @@ namespace PNetR
             var destMsg = Room.GetDestroyMessage(this, RandPRpcs.Hide);
             var hidePlayers = new List<Player>();
             var showPlayers = new List<Player>();
-            
+
             foreach (var player in Room.Players)
             {
                 if (player == null) continue;
@@ -106,21 +126,24 @@ namespace PNetR
                     hidePlayers.Add(player);
                 }
             }
-            Room.SendToPlayers(hidePlayers.ToArray(), destMsg, ReliabilityMode.Ordered);
-            Room.SendToPlayers(showPlayers.ToArray(), ccMsg, ReliabilityMode.Ordered);
+            Room.SendToPlayers(hidePlayers, destMsg, ReliabilityMode.Ordered);
+            Room.SendToPlayers(showPlayers, ccMsg, ReliabilityMode.Ordered);
         }
 
         internal void OnFinishedInstantiate(Player player)
         {
             //get the player up to speed
             SendBuffer(player);
-            try
+            FinishedInstantiation.SafeRaise(player);
+
+            if (MoreInstantiates != null)
             {
-                FinishedInstantiation?.Invoke(player);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
+                var msg = Room.RoomGetMessage(4 + MoreInstantiates.AllocSize);
+                msg.Write(RpcUtils.GetHeader(ReliabilityMode.Ordered, BroadcastMode.Server, MsgType.Internal));
+                msg.Write(RandPRpcs.InstantiatePlus);
+                msg.Write(Id);
+                MoreInstantiates.OnSerialize(msg);
+                Room.SendToPlayer(player, msg, ReliabilityMode.Ordered);
             }
         }
 
@@ -335,14 +358,7 @@ namespace PNetR
 
         internal void IncomingStream(NetMessage msg, Player sender)
         {
-            try
-            {
-                ReceivedStream?.Invoke(msg, sender);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-            }
+            ReceivedStream.SafeRaise(msg, sender);
         }
 
         internal void IncomingRpc(byte componentId, byte rpc, NetMessage msg, NetMessageInfo info, SubMsgType sub)
@@ -363,8 +379,11 @@ namespace PNetR
             RpcProcessor processor;
             if (!_rpcProcessors.TryGetValue(id, out processor))
             {
-                Debug.LogWarning($"Networkview on {componentId}: unhandled RPC {rpc}");
-                info.ContinueForwarding = false;
+                if (!Manager.AllowUnhandledRpcForwarding)
+                {
+                    Debug.LogWarning("Networkview on {1}: unhandled RPC {0}", rpc, componentId);
+                    info.ContinueForwarding = false;
+                }
             }
             else
             {
@@ -445,7 +464,7 @@ namespace PNetR
         /// <param name="players"></param>
         public void SendStream(NetMessage msg, List<Player> players)
         {
-            ImplSendMessage(msg, players, ReliabilityMode.Unreliable);
+            Manager.Room.SendToPlayers(players, msg, ReliabilityMode.Unreliable);
         }
 
         internal Vector3 GetPosition()
@@ -466,7 +485,7 @@ namespace PNetR
         {
             try
             {
-                Destroyed?.Invoke();
+                Destroyed.Raise();
             }
             catch (Exception e)
             {

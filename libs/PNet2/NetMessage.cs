@@ -237,7 +237,7 @@ namespace PNet
         /// </summary>
         /// <param name="size"></param>
         /// <returns></returns>
-        internal static NetMessage GetMessage(int size)
+        public static NetMessage GetMessage(int size)
         {
             if (size < 0)
                 throw new ArgumentException("cannot get a message of negative size", "size");
@@ -276,11 +276,23 @@ namespace PNet
             return ret;
         }
 
+        /// <summary>
+        /// http://graphics.stanford.edu/~seander/bithacks.html#IntegerLogIEEE64Float
+        /// </summary>
+        /// <param name="n"></param>
+        /// <returns></returns>
         static int log2(int n)
         {
-            int targetLevel = 0;
-            while ((n >>= 1) != 0) ++targetLevel;
-            return targetLevel;
+            var d = 0d;
+            unsafe
+            {
+                var pd = &d;
+                var pi = (int*)pd;
+                pi[1] = 0x43300000;
+                pi[0] = n;
+                *pd -= 4503599627370496.0;
+                return (pi[1] >> 20) - 0x3ff;
+            }
         }
 
         /// <summary>

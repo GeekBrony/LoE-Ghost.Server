@@ -5,16 +5,6 @@ namespace PNetS
 {
     public partial class Server
     {
-        public void Send(NetMessage message, RpcMode mode)
-        {
-            ImplSendToAllPlayers(message, mode.ReliabilityMode());
-        }
-
-        public void Send(NetMessage message, Player except, RpcMode mode)
-        {
-            ImplSendToAllPlayersExcept(except, message, mode.ReliabilityMode());
-        }
-
         public void AllPlayersRpc<T>(byte rpcId, T arg)
             where T : INetSerializable
         {
@@ -22,7 +12,7 @@ namespace PNetS
                 throw new NullReferenceException("Cannot serialize null value");
             var msg = StartMessage(rpcId, ReliabilityMode.Ordered, arg.AllocSize);
             arg.OnSerialize(msg);
-            ImplSendToAllPlayers(msg, ReliabilityMode.Ordered);
+            _server.SendToAllPlayers(msg, ReliabilityMode.Ordered);
         }
         /// <summary>
         /// send the rpc to all players
@@ -33,7 +23,7 @@ namespace PNetS
         public void AllPlayersRpc(byte rpcId, params object[] args)
         {
             var msg = SerializeRpc(rpcId, args);
-            ImplSendToAllPlayers(msg, ReliabilityMode.Ordered);
+            _server.SendToAllPlayers(msg, ReliabilityMode.Ordered);
         }
 
         /// <summary>
@@ -46,7 +36,7 @@ namespace PNetS
         public void AllPlayersRpc(Player except, byte rpcId, params object[] args)
         {
             var msg = SerializeRpc(rpcId, args);
-            ImplSendToAllPlayersExcept(except, msg, ReliabilityMode.Ordered);
+            _server.SendToAllPlayersExcept(except, msg, ReliabilityMode.Ordered);
         }
 
         /// <summary>
@@ -77,16 +67,13 @@ namespace PNetS
 
         internal void SendToAll(Player except, NetMessage msg, ReliabilityMode reliability)
         {
-            ImplSendToAllPlayersExcept(except, msg, reliability);
+            _server.SendToAllPlayersExcept(except, msg, reliability);
         }
         internal void SendToAll(NetMessage msg, ReliabilityMode reliability)
         {
-            ImplSendToAllPlayers(msg, reliability);
+            _server.SendToAllPlayers(msg, reliability);
         }
-
-        partial void ImplSendToAllPlayersExcept(Player player, NetMessage msg, ReliabilityMode mode);
-        partial void ImplSendToAllPlayers(NetMessage msg, ReliabilityMode mode);
-
+        
         internal NetMessage StartMessage(byte rpcId, ReliabilityMode mode, int size)
         {
             var msg = GetMessage(size + 2);
@@ -95,6 +82,10 @@ namespace PNetS
             return msg;
         }
 
+        internal void SendPlayerMessage(Player player, NetMessage msg, ReliabilityMode mode, bool recycle)
+        {
+            _server.SendToPlayer(player, msg, mode, recycle);
+        }
         internal NetMessage StartMessage(byte rpcId, byte subId, ReliabilityMode mode, int size)
         {
             var msg = GetMessage(size + 3);
@@ -102,6 +93,10 @@ namespace PNetS
             msg.Write(rpcId);
             msg.Write(subId);
             return msg;
+        }
+        internal void DisconnectPlayer(Player player, string reason)
+        {
+            _server.Disconnect(player, reason);
         }
     }
 }

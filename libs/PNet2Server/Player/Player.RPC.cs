@@ -5,13 +5,8 @@ namespace PNetS
 {
     public partial class Player
     {
-        public void Send(NetMessage message, RpcMode mode)
-        {
-            SendMessage(message, mode.ReliabilityMode());
-        }
-
         public void PlayerRpc<T>(byte rpcId, T arg)
-            where T : INetSerializable
+       where T : INetSerializable
         {
             var msg = Server.StartMessage(rpcId, ReliabilityMode.Ordered, arg.AllocSize);
             arg.OnSerialize(msg);
@@ -33,7 +28,7 @@ namespace PNetS
         }
 
         public void PlayerSubRpc<T>(byte rpcId, byte subId, T arg)
-            where T : INetSerializable
+    where T : INetSerializable
         {
             var msg = Server.StartMessage(rpcId, subId, ReliabilityMode.Ordered, arg.AllocSize);
             arg.OnSerialize(msg);
