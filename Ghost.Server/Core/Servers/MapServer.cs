@@ -193,7 +193,7 @@ namespace Ghost.Server.Core.Servers
                 ServersMgr.Add(this);
                 _id = _room.RoomId.ToString().Normalize(8);
             }
-            else
+            else if (_room.ServerStatus != ConnectionStatus.Connecting)
                 ServersMgr.Remove(this);
             ServerLogger.LogServer(this, $" Status {_room.ServerStatus}");
         }

@@ -139,7 +139,8 @@ namespace Ghost.Server.Core.Servers
                 ServersMgr.Add(this);
                 _id = _room.RoomId.ToString().Normalize(8);
             }
-            else ServersMgr.Remove(this);
+            else if (_room.ServerStatus != ConnectionStatus.Connecting)
+                ServersMgr.Remove(this);
             ServerLogger.LogServer(this, $" Status {_room.ServerStatus}");
         }
         private void Room_PlayerAdded(Player obj)
