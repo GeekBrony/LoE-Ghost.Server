@@ -26,15 +26,10 @@ namespace Ghost.Server.Mgrs
                 return $"{Environment.NewLine}{Environment.NewLine}Maps {m_maps.Count}; Items {m_items.Count}; NPCs {m_npcs.Count}; Loots {m_loots.Count}; Spells {m_spells.Count}; Dialogs {m_dialogs.Count}; Movements {m_movements.Count}; Creatures {m_creatures.Count}; Resources {m_resources.Count}{Environment.NewLine}";
             }
         }
-        public static bool IsLoaded
-        {
-            get { return m_loaded; }
-        }
         static DataMgr()
         {
             LoadAll();
         }
-
         public static void LoadAll()
         {
             if (!ServerDB.SelectAllMaps(out m_maps))

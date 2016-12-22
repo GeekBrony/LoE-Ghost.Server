@@ -20,6 +20,10 @@ namespace Ghost.Server.Mgrs
             MaxChars = Configs.Get<int>(Configs.Game_MaxChars);
             MaxLevel = Configs.Get<short>(Configs.Game_MaxLevel);
         }
+        public static void Clean()
+        {
+            lock (_chars) _chars.Clear();
+        }
         public static bool DeleteCharacter(int id)
         {
             lock (_chars)
@@ -47,8 +51,8 @@ namespace Ghost.Server.Mgrs
 
             data.Bits = 15;
 
-            data.Skills[10] = 0;
-            data.Skills[44] = 0;
+            data.Skills[10] = 0;//Ground Pound
+            data.Skills[44] = 0;//Bubble Barrage
 
             data.Talents[TalentMarkId.Medical] = default(TalentData);
             data.Talents[TalentMarkId.Partying] = default(TalentData);
@@ -63,13 +67,21 @@ namespace Ghost.Server.Mgrs
             switch (entry.Pony.Race)
             {
                 case 1:
+                    data.Skills[5] = 0;//Seismic Buck
+                    data.Skills[16] = 0;//Rough Terrain
+                    data.Skills[21] = 0;//Pillow Barrage
                     data.InventorySlots = 38;
                     break;
                 case 2:
-                    data.Skills[2] = 0;
+                    data.Skills[2] = 0;//Teleport
+                    data.Skills[9] = 0;//Rainbow Fields
+                    data.Skills[15] = 0;//Magical Arrow
+                    data.Skills[31] = 0;//Sphere of Protection
                     data.InventorySlots = 32;
                     break;
                 case 3:
+                    data.Skills[11] = 0;//Dual Cyclone
+                    data.Skills[14] = 0;//Gale
                     data.InventorySlots = 32;
                     break;
             }

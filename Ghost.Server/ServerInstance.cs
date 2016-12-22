@@ -89,13 +89,7 @@ namespace Ghost.Server
                 ServerLogger.LogError($"Couldn't connect to database: {Environment.NewLine}{ServerDB.ConnectionString}");
                 return false;
             }
-            if (DataMgr.IsLoaded)
-                ServerLogger.LogInfo($"Data loaded: {DataMgr.Info}");
-            else
-            {
-                ServerLogger.LogError($"Couldn't load database");
-                return false;
-            }
+            ServerLogger.LogInfo($"Data loaded: {DataMgr.Info}");
             return true;
         }
         private void InitializeCMD()
@@ -118,7 +112,11 @@ namespace Ghost.Server
                                         {
                                             var maps = _maps.Where(x => x.Map.ID == id).ToArray();
                                             if (maps.Length > 0)
-                                                foreach (var item in maps) item.Objects.Reload();
+                                            {
+                                                DataMgr.LoadAll();
+                                                foreach (var item in maps)
+                                                    item.Objects.Reload();
+                                            }
                                             else Console.WriteLine($"Error: can't find maps with id {id}");
                                         }
                                         else Console.WriteLine("Using: map reload objects mapID");
@@ -407,9 +405,15 @@ namespace Ghost.Server
                     switch (args[0])
                     {
                         case "all":
-                            foreach (var item in _maps) item.Restart();
-                            _characters?.Restart();
-                            _master?.Restart();
+                            _master?.Stop();
+                            _characters?.Stop();
+                            foreach (var item in _maps) item.Stop();
+                            CharsMgr.Clean();
+                            DataMgr.LoadAll();
+
+                            _master?.Start();
+                            _characters?.Start();
+                            foreach (var item in _maps) item.Start();
                             break;
                         case "maps":
                             foreach (var item in _maps) item.Restart();
