@@ -37,6 +37,7 @@ namespace Ghost.Network
     public class NetPeer
     {
         private const int HeaderSize = 5;
+        private static readonly EndPoint Any = new IPEndPoint(IPAddress.Any, 0);
 
         private Timer m_ping;
         private Timer m_heart;
@@ -121,16 +122,14 @@ namespace Ghost.Network
             }
         }
 
-        private static void ProcessFlow(INetIncomingMessage message)
+        private void ProcessFlow(INetIncomingMessage message)
         {
-            var netPeer = message.Peer;
             throw new NotImplementedException();
         }
 
-        private static void NetIOComplete(object sender, SocketAsyncEventArgs args)
+        private void NetIOComplete(object sender, SocketAsyncEventArgs args)
         {
-            var socket = (Socket)sender;
-            var netPeer = (NetPeer)args.UserToken;
+
             if (args.SocketError != SocketError.Success)
             {
 
@@ -138,15 +137,22 @@ namespace Ghost.Network
             switch (args.LastOperation)
             {
                 case SocketAsyncOperation.ReceiveFrom:
+                    if (m_transform01.Post(args))
+                    {
+
+                    }
+                    var newArgs = m_memory.GetReceiveArgs();
+                    newArgs.RemoteEndPoint = Any;
+                    if (!m_socket.ReceiveFromAsync(newArgs))
+                        NetIOComplete(m_socket, newArgs);
                     break;
                 case SocketAsyncOperation.SendTo:
                     break;
             }
         }
 
-        private static INetIncomingMessage TransformFlow(INetIncomingMessage message)
+        private INetIncomingMessage TransformFlow(INetIncomingMessage message)
         {
-            var netPeer = message.Peer;
             var flags = (SpecialMessageFlags)message.ReadByte();
             if ((flags & SpecialMessageFlags.Encrypted) > 0)
             {
@@ -159,16 +165,17 @@ namespace Ghost.Network
             return message;
         }
 
-        private static IEnumerable<INetIncomingMessage> TransformFlow(SocketAsyncEventArgs args)
+        private IEnumerable<INetIncomingMessage> TransformFlow(SocketAsyncEventArgs args)
         {
-            var netPeer = (NetPeer)args.UserToken;
-            var buffer = s_memory.GetEmptyBuffer();
+            var buffer = m_memory.GetEmptyBuffer();
+            var collection = NetBufferCollection<INetIncomingMessage>.Allocate();
             buffer.SetBuffer(args);
             while (buffer.Remaining > HeaderSize)
             {
+                var type = (NetMessageType)buffer.ReadByte();
+                var message = m_memory.GetEmptyMessage();
 
-            }
-            var collection = NetBufferCollection<INetIncomingMessage>.Allocate();
+            }   
             return collection;
         }
     }

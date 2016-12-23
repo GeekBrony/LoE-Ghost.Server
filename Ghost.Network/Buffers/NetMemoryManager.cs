@@ -1,6 +1,7 @@
 ﻿using Ghost.Core;
 using System;
 using System.Collections.Concurrent;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 
 namespace Ghost.Network.Buffers
@@ -14,6 +15,8 @@ namespace Ghost.Network.Buffers
         INetBuffer GetBuffer(int minSize);
 
         INetMessage GetMessage(int minSize);
+
+        SocketAsyncEventArgs GetReceiveArgs();
     }
 
     internal class NetMemoryManager : INetMemoryManager
@@ -22,6 +25,7 @@ namespace Ghost.Network.Buffers
         {
             public readonly Func<INetBuffer> BufferGenerator;
             public readonly Func<INetMessage> MessageGenerator;
+            public readonly Func<SocketAsyncEventArgs> SocketArgsGenerator;
 
             private NetMemoryManager m_manager;
 
@@ -30,6 +34,7 @@ namespace Ghost.Network.Buffers
                 m_manager = manager;
                 BufferGenerator = BitConverter.IsLittleEndian ? new Func<INetBuffer>(CreateBufferLE) : new Func<INetBuffer>(CreateBufferBE);
                 MessageGenerator = BitConverter.IsLittleEndian ? new Func<INetMessage>(CreateMessageLE) : new Func<INetMessage>(CreateMessageBE);
+                SocketArgsGenerator = () => new SocketAsyncEventArgs();
             }
 
             private INetBuffer CreateBufferLE()
@@ -63,6 +68,7 @@ namespace Ghost.Network.Buffers
         private MemoryPool m_pool_memory;
         private ObjectPool<INetBuffer> m_pool_buffers;
         private ObjectPool<INetMessage> m_pool_messages;
+        private ObjectPool<SocketAsyncEventArgs> m_pool_socket_args;
         private ConcurrentQueue<ArraySegment<byte>>[] m_segments;
 
         public NetMemoryManager()
@@ -72,11 +78,14 @@ namespace Ghost.Network.Buffers
             m_segments = new ConcurrentQueue<ArraySegment<byte>>[SegmentPools];
             m_pool_buffers = new ObjectPool<INetBuffer>(256, m_factory.BufferGenerator);
             m_pool_messages = new ObjectPool<INetMessage>(256, m_factory.MessageGenerator);
+            m_pool_socket_args = new ObjectPool<SocketAsyncEventArgs>(256, m_factory.SocketArgsGenerator);
             for (int index = 0; index < m_segments.Length; index++)
             {
                 m_segments[index] = new ConcurrentQueue<ArraySegment<byte>>();
                 GenerateSegments(index);
             }
+            for (int index = 0; index < RecivePools; index++)
+                GenerateSegments(m_segments.Length - 1);
         }
 
         public INetBuffer GetEmptyBuffer()
@@ -103,6 +112,14 @@ namespace Ghost.Network.Buffers
             var message = m_pool_messages.Allocate();
             message.SetBuffer(segment);
             return message;
+        }
+
+        public SocketAsyncEventArgs GetReceiveArgs()
+        {
+            var segment = Allocate(MaxLength);
+            var socketArgs = m_pool_socket_args.Allocate();
+            socketArgs.SetBuffer(segment.Array, segment.Offset, segment.Count);
+            return socketArgs;
         }
 
         public ArraySegment<byte> Allocate(int minSize)
@@ -153,5 +170,6 @@ namespace Ghost.Network.Buffers
                 return (int)(((dest[BitConverter.IsLittleEndian ? 1 : 0] >> 20) - 0x3FF) - MinIndex);
             }
         }
+
     }
 }
