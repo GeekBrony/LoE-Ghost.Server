@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Net.Sockets;
 
 namespace Ghost.Network
 {
@@ -165,6 +166,11 @@ namespace Ghost.Network
 
     public interface INetBuffer
     {
+        long Remaining
+        {
+            get;
+        }
+
         bool ReadBoolean();
 
         byte ReadByte();
@@ -175,18 +181,32 @@ namespace Ghost.Network
 
         void Write(bool value);
 
+        void Write(byte value);
+
         void Write(int value);
 
         void Write(long value);
 
+        void SetBuffer(byte[] buffer);
+
+        void SetBuffer(int offset, int length);
+
+        void SetBuffer(ArraySegment<byte> seg);
+
         void SetBuffer(SocketAsyncEventArgs args);
 
-        void PrepareToSend(SocketAsyncEventArgs args);
+        void SetBuffer(byte[] buffer, int offset, int length);
     }
 
     public interface INetMessage : INetBuffer
     {
-        
+        NetPeer Peer { get; }
+
+        NetMessageType Type { get; }
+
+        NetConnection Sender { get; }
+
+        void PrepareToSend(SocketAsyncEventArgs args);
     }
 
     public interface INetSerializable
@@ -198,11 +218,7 @@ namespace Ghost.Network
 
     public interface INetIncomingMessage : INetMessage
     {
-        NetPeer Peer { get; }
 
-        NetMessageType Type { get; }
-
-        NetConnection Sender { get; }
     }
 
     public interface INetOutgoingMessage : INetMessage

@@ -1,4 +1,6 @@
-﻿using Ghost.Core;
+﻿using DryIoc;
+using Ghost.Core;
+using Ghost.Network.Buffers;
 using Ghost.Network.Utilities;
 using System;
 using System.Collections;
@@ -34,28 +36,43 @@ namespace Ghost.Network
 
     public class NetPeer
     {
+        private const int HeaderSize = 5;
+
         private Timer m_ping;
         private Timer m_heart;
         private Socket m_socket;
+        private INetMemoryManager m_memory;
         private NetPeerConfiguration m_configuration;
         private ActionBlock<INetIncomingMessage> m_handler;
         private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
         private TransformBlock<INetIncomingMessage, INetIncomingMessage> m_transform02;
-        private TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage> m_transform01;      
+        private TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage> m_transform01;
 
-        public NetPeer(NetPeerConfiguration configuration)
+        public INetMemoryManager Memory
         {
-            m_configuration = configuration;
+            get { return m_memory; }
+        }
+
+        public NetPeer(IContainer container)
+        {        
+            m_memory = container.Resolve<INetMemoryManager>();
             m_connections = new ConcurrentDictionary<EndPoint, NetConnection>();
             m_ping = new Timer(OnPingTimerTick, this, Timeout.Infinite, Timeout.Infinite);
             m_heart = new Timer(OnHeartTimerTick, this, Timeout.Infinite, Timeout.Infinite);
-            var exOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount };
-            m_handler = new ActionBlock<INetIncomingMessage>(new Action<INetIncomingMessage>(ProcessFlow), exOptions);
-            m_transform02 = new TransformBlock<INetIncomingMessage, INetIncomingMessage>(new Func<INetIncomingMessage, INetIncomingMessage>(TransformFlow), exOptions);
-            m_transform01 = new TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage>(new Func<SocketAsyncEventArgs, IEnumerable<INetIncomingMessage>>(TransformFlow), exOptions);
-            m_transform02.LinkTo(m_handler);
-            m_transform01.LinkTo(m_handler, x => x.Type != NetMessageType.Special);
-            m_transform01.LinkTo(m_transform02, x => x.Type == NetMessageType.Special);
+            {
+                var exOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount };
+                m_handler = new ActionBlock<INetIncomingMessage>(new Action<INetIncomingMessage>(ProcessFlow), exOptions);
+                m_transform02 = new TransformBlock<INetIncomingMessage, INetIncomingMessage>(new Func<INetIncomingMessage, INetIncomingMessage>(TransformFlow), exOptions);
+                m_transform01 = new TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage>(new Func<SocketAsyncEventArgs, IEnumerable<INetIncomingMessage>>(TransformFlow), exOptions);
+                m_transform02.LinkTo(m_handler);
+                m_transform01.LinkTo(m_handler, x => x.Type != NetMessageType.Special);
+                m_transform01.LinkTo(m_transform02, x => x.Type == NetMessageType.Special);
+            }
+        }
+
+        public void Initialize(NetPeerConfiguration configuration)
+        {
+            m_configuration = configuration;
         }
 
         private static void OnPingTimerTick(object state)
@@ -145,6 +162,12 @@ namespace Ghost.Network
         private static IEnumerable<INetIncomingMessage> TransformFlow(SocketAsyncEventArgs args)
         {
             var netPeer = (NetPeer)args.UserToken;
+            var buffer = s_memory.GetEmptyBuffer();
+            buffer.SetBuffer(args);
+            while (buffer.Remaining > HeaderSize)
+            {
+
+            }
             var collection = NetBufferCollection<INetIncomingMessage>.Allocate();
             return collection;
         }

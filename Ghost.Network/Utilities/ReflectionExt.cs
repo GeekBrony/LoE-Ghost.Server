@@ -86,16 +86,16 @@ namespace Ghost.Network.Utilities
 
         public static class RpcServerProxyChache
         {
-            private static readonly Type[] s_targets = new[]
-            {
-                //typeof(PNetR.Player),//public void Send(NetMessage message, RpcMode mode)
-                //typeof(PNetR.Server),//public void Send(NetMessage message, RpcMode mode)
-                //typeof(PNetR.NetworkView),//public void Send(NetMessage message, RpcMode mode)
+            //private static readonly Type[] s_targets = new[]
+            //{
+            //    typeof(PNetR.Player),//public void Send(NetMessage message, RpcMode mode)
+            //    typeof(PNetR.Server),//public void Send(NetMessage message, RpcMode mode)
+            //    typeof(PNetR.NetworkView),//public void Send(NetMessage message, RpcMode mode)
 
-                //typeof(PNetS.Room),//public void Send(NetMessage message, RpcMode mode)
-                //typeof(PNetS.Player),//public void Send(NetMessage message, RpcMode mode)
-                //typeof(PNetS.Server)
-            };
+            //    typeof(PNetS.Room),//public void Send(NetMessage message, RpcMode mode)
+            //    typeof(PNetS.Player),//public void Send(NetMessage message, RpcMode mode)
+            //    typeof(PNetS.Server)
+            //};
 
             static RpcServerProxyChache()
             {

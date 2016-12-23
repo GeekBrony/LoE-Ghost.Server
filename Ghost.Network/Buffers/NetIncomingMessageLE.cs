@@ -17,6 +17,14 @@ namespace Ghost.Network.Buffers
             }
         }
 
+        public NetMessageType Type
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
         public NetConnection Sender
         {
             get
@@ -25,12 +33,11 @@ namespace Ghost.Network.Buffers
             }
         }
 
-        public NetMessageType Type
+
+        public NetIncomingMessageLE(NetMemoryManager manager)
+            : base(manager)
         {
-            get
-            {
-                throw new NotImplementedException();
-            }
+
         }
     }
 }

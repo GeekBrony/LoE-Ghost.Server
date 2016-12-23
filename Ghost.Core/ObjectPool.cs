@@ -29,6 +29,7 @@ namespace Ghost.Core
         public ObjectPool(int capacity, Func<T> generator)
         {
             m_capacity = capacity;
+            m_generator = generator;
             m_pool = CreatePool(m_capacity, m_generator);
             CreateWeakRefs(capacity >> 1);
         }

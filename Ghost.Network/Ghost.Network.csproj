@@ -82,7 +82,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Buffers\NetBufferLE.cs" />
-    <Compile Include="Buffers\NetBuffersManager.cs" />
     <Compile Include="Buffers\NetIncomingMessageLE.cs" />
     <Compile Include="Buffers\NetMemoryManager.cs" />
     <Compile Include="Buffers\NetMessageLE.cs" />
@@ -92,6 +91,7 @@
     <Compile Include="NetPeer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RpcProxyGenerator.cs" />
+    <Compile Include="TestContext.cs" />
     <Compile Include="Utilities\NetBufferCollection.cs" />
     <Compile Include="Utilities\ReflectionExt.cs" />
   </ItemGroup>

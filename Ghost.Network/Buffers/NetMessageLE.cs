@@ -1,10 +1,11 @@
-﻿using System;
-using System.Net.Sockets;
-
-namespace Ghost.Network.Buffers
+﻿namespace Ghost.Network.Buffers
 {
     internal class NetMessageLE : NetBufferLE, INetMessage
     {
+        public NetMessageLE(NetMemoryManager manager)
+            : base(manager)
+        {
 
+        }
     }
 }
