@@ -7,14 +7,14 @@ namespace Ghost.Network.Buffers
 {
     internal unsafe class NetBufferLE : INetBuffer
     {
-        private byte* m_end;
-        private byte* m_start;
-        private byte* m_offset;
-        private byte* m_length;
-        private byte m_bits_offset;
-        private GCHandle m_handle;
-        private NetMemoryManager m_manager;
-        private ArraySegment<byte> m_segment;
+        protected byte* m_end;
+        protected byte* m_start;
+        protected byte* m_offset;
+        protected byte* m_length;
+        protected byte m_bits_offset;
+        protected GCHandle m_handle;
+        protected NetMemoryManager m_manager;
+        protected ArraySegment<byte> m_segment;
 
         public long Length
         {
@@ -101,18 +101,6 @@ namespace Ghost.Network.Buffers
             SetBuffer(args.Buffer, args.Offset, args.Count);
             if (args.BytesTransferred > 0)
                 m_length = m_start + args.BytesTransferred;
-        }
-
-        public void PrepareToSend(SocketAsyncEventArgs args)
-        {
-            if (args == null)
-                throw new ArgumentNullException(nameof(args));
-            if (m_handle.IsAllocated)
-            {
-                args.SetBuffer(m_segment.Array, m_segment.Offset, (int)Length);
-                FreeBuffer();
-            }
-            else throw new InvalidOperationException("Buffer not set");
         }
 
         public void SetBuffer(byte[] buffer, int offset, int length)
@@ -242,8 +230,7 @@ namespace Ghost.Network.Buffers
             if (m_offset > m_length) m_length = m_offset;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void FreeBuffer()
+        public void FreeBuffer()
         {
             if (m_handle.IsAllocated)
             {
@@ -258,14 +245,14 @@ namespace Ghost.Network.Buffers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckRead(int length)
+        protected void CheckRead(int length)
         {
             if ((m_offset + length) > m_length)
                 throw new InvalidOperationException("Read past buffer length");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckWrite(int length)
+        protected void CheckWrite(int length)
         {
             if ((m_offset + length) > m_end)
             {

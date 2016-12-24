@@ -26,8 +26,8 @@ namespace Ghost.Network.Utilities
             //private static readonly Dictionary<Type, MethodInfo> s_try_read_chache;
             //private static readonly Dictionary<Type, MethodInfo> s_var_read_chache;
             //private static readonly Dictionary<Type, MethodInfo> s_var_write_chache;
-            //private static readonly Dictionary<Type, MethodInfo> s_rang_read_chache;
-            //private static readonly Dictionary<Type, MethodInfo> s_rang_write_chache;
+            //private static readonly Dictionary<Type, MethodInfo> s_range_read_chache;
+            //private static readonly Dictionary<Type, MethodInfo> s_range_write_chache;
 
             static NetMessageChache()
             {

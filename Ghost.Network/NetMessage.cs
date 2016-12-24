@@ -166,6 +166,21 @@ namespace Ghost.Network
 
     public interface INetBuffer
     {
+        long Length
+        {
+            get;
+        }
+
+        long Position
+        {
+            get;
+        }
+
+        long Capacity
+        {
+            get;
+        }
+
         long Remaining
         {
             get;
@@ -186,6 +201,8 @@ namespace Ghost.Network
         void Write(int value);
 
         void Write(long value);
+
+        void FreeBuffer();
 
         void SetBuffer(byte[] buffer);
 

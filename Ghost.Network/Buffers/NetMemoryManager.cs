@@ -17,6 +17,9 @@ namespace Ghost.Network.Buffers
         INetMessage GetMessage(int minSize);
 
         SocketAsyncEventArgs GetReceiveArgs();
+
+        void Free<T>(T buffer)
+            where T : INetBuffer;
     }
 
     internal class NetMemoryManager : INetMemoryManager
@@ -131,6 +134,19 @@ namespace Ghost.Network.Buffers
             return segment;
         }
 
+        public void Free<T>(T buffer)
+            where T : INetBuffer
+        {
+            if (buffer is INetMessage)
+                m_pool_messages.Release((INetMessage)buffer);
+            else m_pool_buffers.Release((INetMessage)buffer);
+        }
+
+        public void Free(ArraySegment<byte> segment)
+        {
+            m_segments[Index(segment.Count)].Enqueue(segment);
+        }
+
         private void GenerateSegments(int index)
         {
             var pool = m_segments[index];
@@ -170,6 +186,5 @@ namespace Ghost.Network.Buffers
                 return (int)(((dest[BitConverter.IsLittleEndian ? 1 : 0] >> 20) - 0x3FF) - MinIndex);
             }
         }
-
     }
 }

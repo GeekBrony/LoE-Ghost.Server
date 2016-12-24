@@ -44,10 +44,10 @@ namespace Ghost.Network
         private Socket m_socket;
         private INetMemoryManager m_memory;
         private NetPeerConfiguration m_configuration;
-        private ActionBlock<INetIncomingMessage> m_handler;
+        private ActionBlock<INetMessage> m_handler;
         private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
-        private TransformBlock<INetIncomingMessage, INetIncomingMessage> m_transform02;
-        private TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage> m_transform01;
+        private TransformBlock<INetMessage, INetMessage> m_transform02;
+        private TransformManyBlock<SocketAsyncEventArgs, INetMessage> m_transform01;
 
         public INetMemoryManager Memory
         {
@@ -62,9 +62,9 @@ namespace Ghost.Network
             m_heart = new Timer(OnHeartTimerTick, this, Timeout.Infinite, Timeout.Infinite);
             {
                 var exOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount };
-                m_handler = new ActionBlock<INetIncomingMessage>(new Action<INetIncomingMessage>(ProcessFlow), exOptions);
-                m_transform02 = new TransformBlock<INetIncomingMessage, INetIncomingMessage>(new Func<INetIncomingMessage, INetIncomingMessage>(TransformFlow), exOptions);
-                m_transform01 = new TransformManyBlock<SocketAsyncEventArgs, INetIncomingMessage>(new Func<SocketAsyncEventArgs, IEnumerable<INetIncomingMessage>>(TransformFlow), exOptions);
+                m_handler = new ActionBlock<INetMessage>(new Action<INetMessage>(ProcessFlow), exOptions);
+                m_transform02 = new TransformBlock<INetMessage, INetMessage>(new Func<INetMessage, INetMessage>(TransformFlow), exOptions);
+                m_transform01 = new TransformManyBlock<SocketAsyncEventArgs, INetMessage>(new Func<SocketAsyncEventArgs, IEnumerable<INetMessage>>(TransformFlow), exOptions);
                 m_transform02.LinkTo(m_handler);
                 m_transform01.LinkTo(m_handler, x => x.Type != NetMessageType.Special);
                 m_transform01.LinkTo(m_transform02, x => x.Type == NetMessageType.Special);
@@ -122,7 +122,7 @@ namespace Ghost.Network
             }
         }
 
-        private void ProcessFlow(INetIncomingMessage message)
+        private void ProcessFlow(INetMessage message)
         {
             throw new NotImplementedException();
         }
@@ -151,7 +151,7 @@ namespace Ghost.Network
             }
         }
 
-        private INetIncomingMessage TransformFlow(INetIncomingMessage message)
+        private INetMessage TransformFlow(INetMessage message)
         {
             var flags = (SpecialMessageFlags)message.ReadByte();
             if ((flags & SpecialMessageFlags.Encrypted) > 0)
@@ -165,17 +165,20 @@ namespace Ghost.Network
             return message;
         }
 
-        private IEnumerable<INetIncomingMessage> TransformFlow(SocketAsyncEventArgs args)
+        private IEnumerable<INetMessage> TransformFlow(SocketAsyncEventArgs args)
         {
             var buffer = m_memory.GetEmptyBuffer();
-            var collection = NetBufferCollection<INetIncomingMessage>.Allocate();
+            var collection = NetBufferCollection<INetMessage>.Allocate();
             buffer.SetBuffer(args);
             while (buffer.Remaining > HeaderSize)
             {
                 var type = (NetMessageType)buffer.ReadByte();
                 var message = m_memory.GetEmptyMessage();
 
-            }   
+                collection.Add(message);
+            }
+            buffer.FreeBuffer();
+            m_memory.Free(buffer);
             return collection;
         }
     }

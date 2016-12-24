@@ -5,6 +5,7 @@
         public NetOutgoingMessageLE(NetMemoryManager manager) 
             : base(manager)
         {
+
         }
     }
 }

@@ -13,8 +13,14 @@ namespace TestApplication
         {
             var test = TestContext.CreateNetMemoryManager();
             var test01 = test.GetMessage(12);
-            var test02 = test.GetMessage(120);
-            var test03 = test.GetMessage(128);
+            //var test02 = test.GetMessage(120);
+            //var test03 = test.GetMessage(128);
+            test01.Write(true);
+            test01.Write(true);
+            test01.Write(0);
+            test01.Write(true);
+            test01.Write(true);
+
             Console.ReadLine();
         }
     }
