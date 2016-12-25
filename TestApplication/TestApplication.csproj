@@ -70,6 +70,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Ghost.Core\Ghost.Core.csproj">
+      <Project>{AE447999-C0D0-44C1-AAFA-DAE071951D0C}</Project>
+      <Name>Ghost.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Ghost.Network\Ghost.Network.csproj">
       <Project>{d8220176-2a26-45a1-93a8-dbd90b441bcf}</Project>
       <Name>Ghost.Network</Name>

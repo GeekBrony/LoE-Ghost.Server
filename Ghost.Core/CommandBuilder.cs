@@ -95,11 +95,12 @@ namespace Ghost.Core
 
         public string FullName => GetSubCommandName(m_parent, m_name);
 
-        public CommandBuilder(string name, AccessLevel access, ICommandManager manager)
+        public CommandBuilder(string name, AccessLevel access, IContainer container)
         {
             m_name = name;
             m_access = access;
-            m_manager = manager;
+            m_containet = container;
+            m_manager = container.Resolve<ICommandManager>();
             m_permissions = new HashSet<UserPermission>();
         }
 

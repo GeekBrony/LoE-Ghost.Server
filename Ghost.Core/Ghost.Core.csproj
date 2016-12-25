@@ -78,6 +78,7 @@
     <Compile Include="ICommandBuilder.cs" />
     <Compile Include="ICommandHandler.cs" />
     <Compile Include="ICommandManager.cs" />
+    <Compile Include="IGhostApplication.cs" />
     <Compile Include="IMemoryPool.cs" />
     <Compile Include="IUserIdentity.cs" />
     <Compile Include="MemoryPool.cs" />

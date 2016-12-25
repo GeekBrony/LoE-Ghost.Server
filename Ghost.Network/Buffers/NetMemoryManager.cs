@@ -139,7 +139,7 @@ namespace Ghost.Network.Buffers
         {
             if (buffer is INetMessage)
                 m_pool_messages.Release((INetMessage)buffer);
-            else m_pool_buffers.Release((INetMessage)buffer);
+            else m_pool_buffers.Release(buffer);
         }
 
         public void Free(ArraySegment<byte> segment)

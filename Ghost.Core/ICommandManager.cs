@@ -1,16 +1,10 @@
-﻿using DryIoc;
-using Ghost.Core.Utilities;
+﻿using Ghost.Core.Utilities;
 
 namespace Ghost.Core
 {
     public interface ICommandManager
     {
-        bool IsRunning
-        {
-            get; set;
-        }
-
-        IContainer Container
+        IGhostApplication Application
         {
             get;
         }

@@ -7,20 +7,21 @@ namespace Ghost.Core
 {
     internal class CommandManager : ICommandManager
     {
+        private IContainer m_container;
+        private IGhostApplication m_application;
+
         public bool IsRunning
         {
             get; set;
         }
 
-        public IContainer Container
-        {
-            get; private set;
-        }
+        public IGhostApplication Application => m_application;
 
-        public CommandManager(IContainer container)
+        public CommandManager(IContainer container, IGhostApplication application)
         {
             IsRunning = true;
-            Container = container;
+            m_container = container;
+            m_application = application;
         }
 
         public void Execute(IUserIdentity user, string message)
@@ -29,7 +30,7 @@ namespace Ghost.Core
             {
                 if (message == "?")
                 {
-                    var commands = Container.ResolveMany<ICommandHandler>()
+                    var commands = m_container.ResolveMany<ICommandHandler>()
                         .Where(x => !x.IsSubcommand && user.Access >= x.Access && x.CheckPermission(user));
                     if (commands.Any())
                     {
@@ -43,7 +44,7 @@ namespace Ghost.Core
                 else
                 {
                     var args = new CommandArgs(message);
-                    var command = Container.Resolve<ICommandHandler>(args.Command, IfUnresolved.ReturnDefault);
+                    var command = m_container.Resolve<ICommandHandler>(args.Command, IfUnresolved.ReturnDefault);
                     if (command != null)
                     {
                         if (command.Access <= user.Access && command.CheckPermission(user))
@@ -60,10 +61,10 @@ namespace Ghost.Core
         {
             if (name.HasWhiteSpace())
                 throw new InvalidOperationException($"White space in name not allowed!");
-            if (Container.IsRegistered<ICommandHandler>(name))
+            if (m_container.IsRegistered<ICommandHandler>(name))
                 throw new InvalidOperationException($"Command: {name}, already registered!");
             var builder = new CommandBuilder(name, access, this);
-            Container.UseInstance<ICommandHandler>(builder, true, false, name);
+            m_container.UseInstance<ICommandHandler>(builder, true, false, name);
             return builder;
         }
     }
