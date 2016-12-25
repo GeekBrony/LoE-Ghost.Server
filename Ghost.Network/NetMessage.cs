@@ -190,6 +190,8 @@ namespace Ghost.Network
 
         byte ReadByte();
 
+        short ReadInt16();
+
         int ReadInt32();
 
         long ReadInt64();
@@ -197,6 +199,8 @@ namespace Ghost.Network
         void Write(bool value);
 
         void Write(byte value);
+
+        void Write(short value);
 
         void Write(int value);
 

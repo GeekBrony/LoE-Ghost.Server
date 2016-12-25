@@ -20,7 +20,24 @@ namespace TestApplication
             test01.Write(0);
             test01.Write(true);
             test01.Write(true);
+            test01.Write(false);
+            test01.Write(false);
+            test01.Write(true);
+            test01.Write(true);
+            test01.Write(byte.MaxValue);
+            test01.Write(short.MinValue);
 
+            test01.Write(long.MaxValue);
+            test01.Write(long.MaxValue);
+            test01.Write(long.MaxValue);
+            test01.Write(long.MaxValue);
+            test01.Write(long.MaxValue);
+            test01.Write(long.MaxValue);
+            test01.Write(int.MaxValue);
+            test01.Write(short.MaxValue);
+            test01.Write(byte.MaxValue);
+            test01.Write(byte.MaxValue);
+            test01.Write(true);
             Console.ReadLine();
         }
     }

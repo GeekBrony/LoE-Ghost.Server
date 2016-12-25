@@ -112,6 +112,7 @@ namespace Ghost.Network.Buffers
             if (length < 0 || (offset + length) > buffer.Length)
                 throw new ArgumentOutOfRangeException(nameof(length));
             if (m_handle.IsAllocated) FreeBuffer();
+            m_segment = new ArraySegment<byte>(buffer, offset, length);
             m_handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
             m_start = (byte*)m_handle.AddrOfPinnedObject().ToPointer() + offset;
             m_end = m_start + length;
@@ -141,6 +142,18 @@ namespace Ghost.Network.Buffers
             return value;
         }
 
+        public short ReadInt16()
+        {
+            CheckRead(sizeof(short));
+            short value;
+            if (m_bits_offset == 0)
+                value = *(short*)m_offset;
+            else
+                value = (short)((*(ushort*)m_offset | (ulong)m_offset[sizeof(ushort)] << (sizeof(ushort) << 3)) >> m_bits_offset);
+            m_offset += sizeof(short);
+            return value;
+        }
+
         public int ReadInt32()
         {
             CheckRead(sizeof(int));
@@ -167,11 +180,12 @@ namespace Ghost.Network.Buffers
 
         public void Write(bool value)
         {
-            CheckWrite(0);
+            CheckWrite(m_bits_offset != 0 ? 0 : 1);
             if (value)
                 *m_offset |= (byte)(1 << m_bits_offset);
             else
                 *m_offset &= (byte)~(1 << m_bits_offset);
+            if (m_bits_offset == 0) m_length = m_offset + 1;
             m_bits_offset = (byte)((m_bits_offset + 1) % (sizeof(byte) << 3));
             if (m_bits_offset == 0)
             {
@@ -193,7 +207,26 @@ namespace Ghost.Network.Buffers
                 *(ushort*)m_offset = (ushort)((*(ushort*)m_offset & ~(byte.MaxValue << m_bits_offset)) | (value << m_bits_offset));
                 m_offset += sizeof(byte);
             }
-            if (m_offset > m_length) m_length = m_offset;
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
+        public void Write(short value)
+        {
+            CheckWrite(sizeof(short));
+            if (m_bits_offset == 0)
+            {
+                *(short*)m_offset = value;
+                m_offset += sizeof(short);
+            }
+            else
+            {
+                *(short*)m_offset = (short)((*m_offset & ~(byte.MaxValue << m_bits_offset)) | (value << m_bits_offset));
+                m_offset += sizeof(short);
+                *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | ((uint)value >> (sizeof(short) << 3) - m_bits_offset));
+            }
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
         public void Write(int value)
@@ -210,7 +243,8 @@ namespace Ghost.Network.Buffers
                 m_offset += sizeof(int);
                 *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | ((uint)value >> (sizeof(int) << 3) - m_bits_offset));
             }
-            if (m_offset > m_length) m_length = m_offset;
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
         public void Write(long value)
@@ -227,7 +261,8 @@ namespace Ghost.Network.Buffers
                 m_offset += sizeof(long);
                 *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | ((ulong)value >> (sizeof(long) << 3) - m_bits_offset));
             }
-            if (m_offset > m_length) m_length = m_offset;
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
         public void FreeBuffer()
@@ -261,11 +296,13 @@ namespace Ghost.Network.Buffers
                 var handle = GCHandle.Alloc(segment.Array, GCHandleType.Pinned);
                 Buffer.MemoryCopy(m_start, handle.AddrOfPinnedObject().ToPointer(), segment.Count, Length);
                 m_handle.Free();
+                m_manager.Free(m_segment);
                 m_start = (byte*)handle.AddrOfPinnedObject().ToPointer() + segment.Offset;
                 m_end = m_start + segment.Count;
                 m_length = m_start + (m_length - start);
                 m_offset = m_start + (m_offset - start);
                 m_handle = handle;
+                m_segment = segment;
             }
         }
     }
