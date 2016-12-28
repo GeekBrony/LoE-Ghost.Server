@@ -133,6 +133,11 @@ namespace Ghost.Server.Core.Servers
         {
             lock (_lock) return _users.ContainsKey(id);
         }
+        public IEnumerable<MasterPlayer> GetPlayers()
+        {
+            lock (_lock) return _players.Values.ToArray();
+        }
+
         public bool TryGetById(ushort id, out MasterPlayer player)
         {
             lock (_lock) return _players.TryGetValue(id, out player);
@@ -210,6 +215,7 @@ namespace Ghost.Server.Core.Servers
                 }
             }
         }
+
         private INetSerializable MasterServer_ConstructNetData()
         {
             return new UserData();
