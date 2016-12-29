@@ -206,7 +206,7 @@ namespace Ghost.Network
 
         void Write(long value);
 
-        void FreeBuffer();
+        void Free();
 
         void SetBuffer(byte[] buffer);
 
@@ -221,19 +221,31 @@ namespace Ghost.Network
 
     public interface INetMessage : INetBuffer
     {
-        NetPeer Peer { get; }
+        NetPeer Peer
+        {
+            get;
+        }
 
-        NetMessageType Type { get; }
+        NetMessageType Type
+        {
+            get;
+            set;
+        }
 
-        NetConnection Sender { get; }
+        NetConnection Sender
+        {
+            get;
+        }
 
-        void PrepareToSend(SocketAsyncEventArgs args);
+        void BindTo(SocketAsyncEventArgs args);
     }
 
     public interface INetSerializable
     {
         int AllocSize { get; }
+
         void OnSerialize(INetMessage message);
+
         void OnDeserialize(INetMessage message);
     }
 

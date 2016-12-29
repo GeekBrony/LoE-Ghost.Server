@@ -11,8 +11,10 @@ namespace Ghost.Network.Buffers
         protected byte* m_start;
         protected byte* m_offset;
         protected byte* m_length;
-        protected byte m_bits_offset;
+        protected int m_ref_count;
         protected GCHandle m_handle;
+        protected bool m_track_free;
+        protected byte m_bits_offset;
         protected NetMemoryManager m_manager;
         protected ArraySegment<byte> m_segment;
 
@@ -77,6 +79,20 @@ namespace Ghost.Network.Buffers
             m_manager = manager;
         }
 
+        public void Free()
+        {
+            if (m_handle.IsAllocated)
+            {
+                m_end = (byte*)0;
+                m_start = (byte*)0;
+                m_offset = (byte*)0;
+                m_length = (byte*)0;
+                m_bits_offset = 0;
+                m_handle.Free();
+                m_segment = default(ArraySegment<byte>);
+            }
+        }
+
         public void SetBuffer(byte[] buffer)
         {
             SetBuffer(buffer, 0, buffer.Length);
@@ -111,7 +127,7 @@ namespace Ghost.Network.Buffers
                 throw new ArgumentOutOfRangeException(nameof(offset));
             if (length < 0 || (offset + length) > buffer.Length)
                 throw new ArgumentOutOfRangeException(nameof(length));
-            if (m_handle.IsAllocated) FreeBuffer();
+            if (m_handle.IsAllocated) Free();
             m_segment = new ArraySegment<byte>(buffer, offset, length);
             m_handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
             m_start = (byte*)m_handle.AddrOfPinnedObject().ToPointer() + offset;
@@ -263,20 +279,6 @@ namespace Ghost.Network.Buffers
             }
             if (m_offset > m_length)
                 m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
-        }
-
-        public void FreeBuffer()
-        {
-            if (m_handle.IsAllocated)
-            {
-                m_end = (byte*)0;
-                m_start = (byte*)0;
-                m_offset = (byte*)0;
-                m_length = (byte*)0;
-                m_bits_offset = 0;
-                m_handle.Free();
-                m_segment = default(ArraySegment<byte>);
-            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

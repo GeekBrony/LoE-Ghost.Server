@@ -41,22 +41,21 @@ namespace Ghost.Network
 
         private Timer m_ping;
         private Timer m_heart;
-        private Socket m_socket;
-        private INetMemoryManager m_memory;
-        private NetPeerConfiguration m_configuration;
+        private Socket m_socket;       
         private ActionBlock<INetMessage> m_handler;
-        private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
+        private NetPeerConfiguration m_configuration;
         private TransformBlock<INetMessage, INetMessage> m_transform02;
+        private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
         private TransformManyBlock<SocketAsyncEventArgs, INetMessage> m_transform01;
 
         public INetMemoryManager Memory
         {
-            get { return m_memory; }
+            get; private set;
         }
 
         public NetPeer(IContainer container)
-        {        
-            m_memory = container.Resolve<INetMemoryManager>();
+        {
+            Memory = container.Resolve<INetMemoryManager>();
             m_connections = new ConcurrentDictionary<EndPoint, NetConnection>();
             m_ping = new Timer(OnPingTimerTick, this, Timeout.Infinite, Timeout.Infinite);
             m_heart = new Timer(OnHeartTimerTick, this, Timeout.Infinite, Timeout.Infinite);
@@ -76,46 +75,38 @@ namespace Ghost.Network
             m_configuration = configuration;
         }
 
-        private static void OnPingTimerTick(object state)
+        private void OnPingTimerTick(object state)
         {
-            var netPeer = (NetPeer)state;
+            foreach (var item in m_connections)
             {
-                var collection = netPeer.m_connections;
-                foreach (var item in collection)
-                {
-                    var connection = item.Value;
-                    connection.Ping();
-                }
+                var connection = item.Value;
+                connection.Ping();
             }
         }
 
-        private static void OnHeartTimerTick(object state)
+        private void OnHeartTimerTick(object state)
         {
-            var netPeer = (NetPeer)state;
+            foreach (var item in m_connections)
             {
-                var collection = netPeer.m_connections;
-                foreach (var item in collection)
+                var connection = item.Value;
+                //ToDo: use settings
+                if (connection.LastPing.AddSeconds(3) < DateTime.Now)
                 {
-                    var connection = item.Value;
+                    connection.Disconect("Connection timed out!");
+                    if (m_connections.TryRemove(item.Key, out connection))
+                    {
+                        //ToDo: use logging
+                    }
+                }
+                if (connection.WaitingForApproval)
+                {
                     //ToDo: use settings
-                    if (connection.LastPing.AddSeconds(3) < DateTime.Now)
+                    if (connection.ConnectionTime.AddSeconds(10) < DateTime.Now)
                     {
                         connection.Disconect("Connection timed out!");
-                        if (collection.TryRemove(item.Key, out connection))
+                        if (m_connections.TryRemove(item.Key, out connection))
                         {
                             //ToDo: use logging
-                        }
-                    }
-                    if (connection.WaitingForApproval)
-                    {
-                        //ToDo: use settings
-                        if (connection.ConnectionTime.AddSeconds(10) < DateTime.Now)
-                        {
-                            connection.Disconect("Connection timed out!");
-                            if (collection.TryRemove(item.Key, out connection))
-                            {
-                                //ToDo: use logging
-                            }
                         }
                     }
                 }
@@ -129,7 +120,6 @@ namespace Ghost.Network
 
         private void NetIOComplete(object sender, SocketAsyncEventArgs args)
         {
-
             if (args.SocketError != SocketError.Success)
             {
 
@@ -141,12 +131,13 @@ namespace Ghost.Network
                     {
 
                     }
-                    var newArgs = m_memory.GetReceiveArgs();
+                    var newArgs = Memory.GetReciveArgs();
                     newArgs.RemoteEndPoint = Any;
                     if (!m_socket.ReceiveFromAsync(newArgs))
                         NetIOComplete(m_socket, newArgs);
                     break;
                 case SocketAsyncOperation.SendTo:
+                    (args.UserToken as INetMessage)?.Free();
                     break;
             }
         }
@@ -167,18 +158,19 @@ namespace Ghost.Network
 
         private IEnumerable<INetMessage> TransformFlow(SocketAsyncEventArgs args)
         {
-            var buffer = m_memory.GetEmptyBuffer();
+            var buffer = Memory.GetBuffer();
             var collection = NetBufferCollection<INetMessage>.Allocate();
             buffer.SetBuffer(args);
             while (buffer.Remaining > HeaderSize)
             {
-                var type = (NetMessageType)buffer.ReadByte();
-                var message = m_memory.GetEmptyMessage();
+                var message = Memory.GetMessage();
+                message.Type = (NetMessageType)buffer.ReadByte();
+
 
                 collection.Add(message);
             }
-            buffer.FreeBuffer();
-            m_memory.Free(buffer);
+            buffer.Free();
+            Memory.Free(args);
             return collection;
         }
     }

@@ -8,18 +8,19 @@ namespace Ghost.Network.Buffers
 {
     public interface INetMemoryManager
     {
-        INetBuffer GetEmptyBuffer();
+        INetBuffer GetBuffer();
 
-        INetMessage GetEmptyMessage();
+        INetMessage GetMessage();
 
         INetBuffer GetBuffer(int minSize);
 
         INetMessage GetMessage(int minSize);
 
-        SocketAsyncEventArgs GetReceiveArgs();
+        SocketAsyncEventArgs GetSendArgs();
 
-        void Free<T>(T buffer)
-            where T : INetBuffer;
+        SocketAsyncEventArgs GetReciveArgs();
+
+        void Free(SocketAsyncEventArgs args);
     }
 
     internal class NetMemoryManager : INetMemoryManager
@@ -64,6 +65,7 @@ namespace Ghost.Network.Buffers
         private const int MinLength = 1 << MinIndex;
         private const int MaxLength = 1 << MaxIndex;
         private const int RecivePools = 4;
+        private const int ReciveLength = 1 << 13;
         private const int SegmentPools = MaxIndex - MinIndex;
         private const int MemoryPools = SegmentPools + RecivePools;
 
@@ -81,7 +83,7 @@ namespace Ghost.Network.Buffers
             m_segments = new ConcurrentQueue<ArraySegment<byte>>[SegmentPools];
             m_pool_buffers = new ObjectPool<INetBuffer>(256, m_factory.BufferGenerator);
             m_pool_messages = new ObjectPool<INetMessage>(256, m_factory.MessageGenerator);
-            m_pool_socket_args = new ObjectPool<SocketAsyncEventArgs>(256, m_factory.SocketArgsGenerator);
+            m_pool_socket_args = new ObjectPool<SocketAsyncEventArgs>(512, m_factory.SocketArgsGenerator);
             for (int index = 0; index < m_segments.Length; index++)
             {
                 m_segments[index] = new ConcurrentQueue<ArraySegment<byte>>();
@@ -91,12 +93,12 @@ namespace Ghost.Network.Buffers
                 GenerateSegments(m_segments.Length - 1);
         }
 
-        public INetBuffer GetEmptyBuffer()
+        public INetBuffer GetBuffer()
         {
             return m_pool_buffers.Allocate();
         }
 
-        public INetMessage GetEmptyMessage()
+        public INetMessage GetMessage()
         {
             return m_pool_messages.Allocate();
         }
@@ -117,9 +119,14 @@ namespace Ghost.Network.Buffers
             return message;
         }
 
-        public SocketAsyncEventArgs GetReceiveArgs()
+        public SocketAsyncEventArgs GetSendArgs()
         {
-            var segment = Allocate(MaxLength);
+            return m_pool_socket_args.Allocate();
+        }
+
+        public SocketAsyncEventArgs GetReciveArgs()
+        {
+            var segment = Allocate(ReciveLength);
             var socketArgs = m_pool_socket_args.Allocate();
             socketArgs.SetBuffer(segment.Array, segment.Offset, segment.Count);
             return socketArgs;
@@ -140,6 +147,13 @@ namespace Ghost.Network.Buffers
             if (buffer is INetMessage)
                 m_pool_messages.Release((INetMessage)buffer);
             else m_pool_buffers.Release(buffer);
+        }
+
+        public void Free(SocketAsyncEventArgs args)
+        {
+            Free(new ArraySegment<byte>(args.Buffer, args.Offset, args.Count));
+            args.SetBuffer(null, 0, 0);
+            m_pool_socket_args.Release(args);
         }
 
         public void Free(ArraySegment<byte> segment)
