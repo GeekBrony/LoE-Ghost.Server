@@ -4,6 +4,11 @@ namespace Ghost.Core
 {
     public interface IUserIdentity
     {
+        string Name
+        {
+            get;
+        }
+
         AccessLevel Access
         {
             get;

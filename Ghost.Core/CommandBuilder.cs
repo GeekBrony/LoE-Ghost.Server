@@ -46,18 +46,18 @@ namespace Ghost.Core
 
     internal class CommandBuilder : CommandBuilder<ICommandManager>
     {
-        public CommandBuilder(string name, AccessLevel access, ICommandManager manager)
-            : base(name, access, manager)
+        public CommandBuilder(string name, AccessLevel access, IContainer container)
+            : base(name, access, container)
         {
-            m_previous = manager;
+            m_previous = m_manager;
         }
     }
 
     internal class CommandBuilder<TPrevious, T> : CommandBuilder<TPrevious>
         where TPrevious : ICommandBuilder<T>
     {
-        public CommandBuilder(string name, AccessLevel access, TPrevious previous)
-            : base(name, access, previous.Manager)
+        public CommandBuilder(string name, AccessLevel access, IContainer container, TPrevious previous)
+            : base(name, access, container)
         {
             m_parent = previous;
             m_previous = previous;
@@ -74,13 +74,14 @@ namespace Ghost.Core
 
         protected T m_previous;
         protected ICommandBuilder m_parent;
+        protected ICommandManager m_manager;
 
         private string m_name;
         private string m_usage;
         private string m_description;
         private AccessLevel m_access;
+        private IContainer m_container;
         private CommandHandler m_handler;
-        private ICommandManager m_manager;
         private HashSet<UserPermission> m_permissions;
 
         public string Name => m_name;
@@ -99,7 +100,7 @@ namespace Ghost.Core
         {
             m_name = name;
             m_access = access;
-            m_containet = container;
+            m_container = container;
             m_manager = container.Resolve<ICommandManager>();
             m_permissions = new HashSet<UserPermission>();
         }
@@ -111,11 +112,10 @@ namespace Ghost.Core
 
         public ICommandBuilder<T> Alias(string name)
         {
-            var container = Manager.Container;
             var aliasName = GetSubCommandName(m_parent, name);
-            if (container.IsRegistered<ICommandHandler>(aliasName))
+            if (m_container.IsRegistered<ICommandHandler>(aliasName))
                 throw new InvalidOperationException($"Alias: {name}, already registered!");
-            container.UseInstance<ICommandHandler>(new CommandAlias(name, this), true, false, aliasName);
+            m_container.UseInstance<ICommandHandler>(new CommandAlias(name, this), true, false, aliasName);
             return this;
         }
 
@@ -154,10 +154,10 @@ namespace Ghost.Core
             if (name.HasWhiteSpace())
                 throw new InvalidOperationException($"White space in name not allowed!");
             var subName = GetSubCommandName(this, name);
-            if (m_manager.Container.IsRegistered<ICommandHandler>(subName))
+            if (m_container.IsRegistered<ICommandHandler>(subName))
                 throw new InvalidOperationException($"SubCommand: {name}, already registered!");
-            var builder = new CommandBuilder<ICommandBuilder<T>, T>(name, access, this);
-            m_manager.Container.UseInstance<ICommandHandler>(builder, true, false, subName);
+            var builder = new CommandBuilder<ICommandBuilder<T>, T>(name, access, m_container, this);
+            m_container.UseInstance<ICommandHandler>(builder, true, false, subName);
             return builder;
         }
 
@@ -183,7 +183,7 @@ namespace Ghost.Core
             if (args.TryPeek(out argument))
             {
                 var subName = GetSubCommandName(this, argument);
-                var subCommand = m_manager.Container.Resolve<ICommandHandler>(subName, IfUnresolved.ReturnDefault);
+                var subCommand = m_container.Resolve<ICommandHandler>(subName, IfUnresolved.ReturnDefault);
                 if (subCommand != null)
                 {
                     if (user.Access >= subCommand.Access && subCommand.CheckPermission(user))
@@ -195,7 +195,7 @@ namespace Ghost.Core
                 {
                     if (m_usage != null) user.Info($"Usage: {m_usage}");
                     if (m_description != null) user.Info($"Description: {m_description}");
-                    var subCommands = m_manager.Container.ResolveMany<ICommandHandler>()
+                    var subCommands = m_container.ResolveMany<ICommandHandler>()
                         .Where(x => x.IsSubcommand && x.IsSubcommandOf(this) && user.Access >= x.Access && x.CheckPermission(user));
                     if (subCommands.Any())
                     {

@@ -50,8 +50,8 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DryIoc, Version=2.9.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\DryIoc.dll.2.9.4\lib\net45\DryIoc.dll</HintPath>
+    <Reference Include="DryIoc, Version=2.9.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\DryIoc.dll.2.9.5\lib\net45\DryIoc.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -75,23 +75,27 @@
     <Compile Include="CommandArgs.cs" />
     <Compile Include="CommandBuilder.cs" />
     <Compile Include="CommandManager.cs" />
+    <Compile Include="ConsoleUser.cs" />
+    <Compile Include="GhostApplication.cs" />
     <Compile Include="ICommandBuilder.cs" />
     <Compile Include="ICommandHandler.cs" />
     <Compile Include="ICommandManager.cs" />
     <Compile Include="IGhostApplication.cs" />
+    <Compile Include="IGhostModule.cs" />
     <Compile Include="IMemoryPool.cs" />
     <Compile Include="IUserIdentity.cs" />
+    <Compile Include="IUsersManager.cs" />
     <Compile Include="MemoryPool.cs" />
     <Compile Include="ObjectPool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\DelegateExt.cs" />
     <Compile Include="Utilities\EnumExt.cs" />
+    <Compile Include="Utilities\ExceptionExt.cs" />
     <Compile Include="Utilities\ReflectionExt.cs" />
     <Compile Include="Utilities\StringExt.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

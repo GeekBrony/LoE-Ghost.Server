@@ -50,8 +50,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DryIoc, Version=2.9.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\DryIoc.dll.2.9.4\lib\net45\DryIoc.dll</HintPath>
+    <Reference Include="DryIoc, Version=2.9.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\DryIoc.dll.2.9.5\lib\net45\DryIoc.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />

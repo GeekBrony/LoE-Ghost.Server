@@ -1,4 +1,5 @@
-﻿using NHibernate;
+﻿using Ghost.Core;
+using NHibernate;
 using NHibernate.Linq;
 using System.Linq;
 

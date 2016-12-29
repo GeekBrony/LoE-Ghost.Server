@@ -15,6 +15,16 @@
         ExecuteCommands = 1,
     }
 
+    public enum ApplicationState
+    {
+        None,
+        Initializing,
+        Initialized,
+        Starting,
+        Running,
+        Exiting,
+        Exited
+    }
     public static class EnumExt
     {
 

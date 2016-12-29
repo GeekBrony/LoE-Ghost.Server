@@ -1,7 +1,6 @@
 ﻿using Ghost.Core.Utilities;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace Ghost.Core
@@ -206,8 +205,6 @@ namespace Ghost.Core
 
         public IEnumerable<string> GetCurrentArgs()
         {
-            if (m_index >= m_args.Length)
-                throw new IndexOutOfRangeException();
             return m_args.Skip(m_index);
         }
     }

@@ -20,11 +20,29 @@ namespace Ghost.Network.Buffers
             }
         }
 
-        public NetPeer Peer => throw new NotImplementedException();
+        public NetPeer Peer
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
 
-        public NetConnection Sender => throw new NotImplementedException();
+        public NetConnection Sender
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
 
-        public NetMessageType Type => throw new NotImplementedException();
+        public NetMessageType Type
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         public NetMessageLE(NetMemoryManager manager)
             : base(manager)

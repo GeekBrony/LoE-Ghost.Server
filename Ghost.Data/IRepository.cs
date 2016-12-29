@@ -1,7 +1,4 @@
-﻿using NHibernate;
-using NHibernate.Linq;
-using System;
-using System.Linq;
+﻿using System.Linq;
 
 namespace Ghost.Data
 {
