@@ -30,6 +30,7 @@ namespace Ghost.Core
         private IContainer m_container;
         private ApplicationState m_state;
         private ICommandManager m_commands;
+        private ISettingsManager m_settings;
 
         public string Name
         {
@@ -46,6 +47,7 @@ namespace Ghost.Core
 
         public ICommandManager Commands => m_commands;
 
+        public ISettingsManager Settings => m_settings;
 
         public GhostApplication(string name)
         {
@@ -98,7 +100,9 @@ namespace Ghost.Core
         private void RegisterDefaults()
         {
             m_container.Register<ICommandManager, CommandManager>(Reuse.Singleton);
+            m_container.Register<ISettingsManager, SettingsManager>(Reuse.Singleton);
             m_commands = m_container.Resolve<ICommandManager>();
+            m_settings = m_container.Resolve<ISettingsManager>();
         }
 
         private void ApplicationStart()

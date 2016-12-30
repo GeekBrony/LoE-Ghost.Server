@@ -82,6 +82,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataManager.cs" />
     <Compile Include="Entities\BaseEntity.cs" />
     <Compile Include="Entities\ConditionTemplate.cs" />
     <Compile Include="Entities\ItemTemplate.cs" />
@@ -104,6 +105,7 @@
     <Compile Include="Entities\UserCharacterVisual.cs" />
     <Compile Include="Entities\UserAccount.cs" />
     <Compile Include="Entities\UserCharacter.cs" />
+    <Compile Include="IDataManager.cs" />
     <Compile Include="IEntity.cs" />
     <Compile Include="IRepository.cs" />
     <Compile Include="NHRepository.cs" />
@@ -115,6 +117,7 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <EmbeddedResource Include="Settings\CFG_DataSettings.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ghost.Core\Ghost.Core.csproj">

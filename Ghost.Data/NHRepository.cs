@@ -1,6 +1,4 @@
-﻿using Ghost.Core;
-using NHibernate;
-using NHibernate.Linq;
+﻿using NHibernate.Linq;
 using System.Linq;
 
 namespace Ghost.Data
@@ -8,57 +6,55 @@ namespace Ghost.Data
     internal class NHRepository<T> : IRepository<T>
         where T : IEntity
     {
-        private ISession m_session;
-        private ISessionFactory m_factory;
+        private IDataManager m_manager;
 
-        public NHRepository(ISessionFactory factory)
+        public NHRepository(IDataManager manager)
         {
-            m_session = factory.OpenSession();
-            m_factory = factory;
+            m_manager = manager;
         }
 
         public T Get(int id)
         {
-            return m_session.Get<T>(id);
+            return m_manager.GetSession().Get<T>(id);
         }
 
         public IQueryable<T> GetAll()
         {
-            return new NhQueryable<T>(m_session.GetSessionImplementation());
+            return new NhQueryable<T>(m_manager.GetSession().GetSessionImplementation());
         }
 
         public void Save(T entity)
         {
-            using (var transaction = m_session.BeginTransaction())
+            using (var transaction = m_manager.BeginTransaction())
             {
-                m_session.Save(entity);
+                m_manager.GetSession().Save(entity);
                 transaction.Commit();
             }
         }
 
         public void Delete(T entity)
         {
-            using (var transaction = m_session.BeginTransaction())
+            using (var transaction = m_manager.BeginTransaction())
             {
-                m_session.Delete(entity);
+                m_manager.GetSession().Delete(entity);
                 transaction.Commit();
             }
         }
 
         public void Update(T entity)
         {
-            using (var transaction = m_session.BeginTransaction())
+            using (var transaction = m_manager.BeginTransaction())
             {
-                m_session.Update(entity);
+                m_manager.GetSession().Update(entity);
                 transaction.Commit();
             }
         }
 
         public void SaveOrUpdate(T entity)
         {
-            using (var transaction = m_session.BeginTransaction())
+            using (var transaction = m_manager.BeginTransaction())
             {
-                m_session.SaveOrUpdate(entity);
+                m_manager.GetSession().SaveOrUpdate(entity);
                 transaction.Commit();
             }
         }

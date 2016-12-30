@@ -7,20 +7,17 @@ namespace Ghost.Core
 {
     internal class CommandManager : ICommandManager
     {
+        private IContainer m_container;
+
         public bool IsRunning
         {
             get; set;
         }
 
-        public IContainer Container
-        {
-            get;
-            set;
-        }
-
-        public CommandManager()
+        public CommandManager(IContainer container)
         {
             IsRunning = true;
+            m_container = container;
         }
 
         public void Execute(IUserIdentity user, string message)
@@ -29,7 +26,7 @@ namespace Ghost.Core
             {
                 if (message == "?")
                 {
-                    var commands = Container.ResolveMany<ICommandHandler>()
+                    var commands = m_container.ResolveMany<ICommandHandler>()
                         .Where(x => !x.IsSubcommand && user.Access >= x.Access && x.CheckPermission(user));
                     if (commands.Any())
                     {
@@ -43,7 +40,7 @@ namespace Ghost.Core
                 else
                 {
                     var args = new CommandArgs(message);
-                    var command = Container.Resolve<ICommandHandler>(args.Command, IfUnresolved.ReturnDefault);
+                    var command = m_container.Resolve<ICommandHandler>(args.Command, IfUnresolved.ReturnDefault);
                     if (command != null)
                     {
                         if (command.Access <= user.Access && command.CheckPermission(user))
@@ -60,10 +57,10 @@ namespace Ghost.Core
         {
             if (name.HasWhiteSpace())
                 throw new InvalidOperationException($"White space in name not allowed!");
-            if (Container.IsRegistered<ICommandHandler>(name))
+            if (m_container.IsRegistered<ICommandHandler>(name))
                 throw new InvalidOperationException($"Command: {name}, already registered!");
-            var builder = new CommandBuilder(name, access, Container);
-            Container.UseInstance<ICommandHandler>(builder, true, false, name);
+            var builder = new CommandBuilder(name, access, m_container);
+            m_container.UseInstance<ICommandHandler>(builder, true, false, name);
             return builder;
         }
     }
