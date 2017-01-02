@@ -27,6 +27,11 @@ namespace Ghost.Network
             get; private set;
         }
 
+        public EndPoint BindPoint
+        {
+            get; set;
+        }
+
         public NetPeerConfiguration(string appId, bool canAccept)
         {
             AppId = appId;
@@ -41,9 +46,10 @@ namespace Ghost.Network
 
         private Timer m_ping;
         private Timer m_heart;
-        private Socket m_socket;       
+        private Socket m_socket;
         private ActionBlock<INetMessage> m_handler;
         private NetPeerConfiguration m_configuration;
+        private EventHandler<SocketAsyncEventArgs> m_io_handler;
         private TransformBlock<INetMessage, INetMessage> m_transform02;
         private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
         private TransformManyBlock<SocketAsyncEventArgs, INetMessage> m_transform01;
@@ -53,10 +59,11 @@ namespace Ghost.Network
             get; private set;
         }
 
-        public NetPeer(IContainer container)
+        public NetPeer(INetMemoryManager manager)
         {
-            Memory = container.Resolve<INetMemoryManager>();
+            Memory = manager;
             m_connections = new ConcurrentDictionary<EndPoint, NetConnection>();
+            m_io_handler = new EventHandler<SocketAsyncEventArgs>(NetIOComplete);
             m_ping = new Timer(OnPingTimerTick, this, Timeout.Infinite, Timeout.Infinite);
             m_heart = new Timer(OnHeartTimerTick, this, Timeout.Infinite, Timeout.Infinite);
             {
@@ -73,6 +80,12 @@ namespace Ghost.Network
         public void Initialize(NetPeerConfiguration configuration)
         {
             m_configuration = configuration;
+            m_socket = new Socket(configuration.BindPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            m_socket.Bind(configuration.BindPoint);
+            var args = Memory.GetReciveArgs();
+            args.Completed += m_io_handler;
+            if (!m_socket.ReceiveFromAsync(args))
+                NetIOComplete(m_socket, args);
         }
 
         private void OnPingTimerTick(object state)
@@ -115,7 +128,8 @@ namespace Ghost.Network
 
         private void ProcessFlow(INetMessage message)
         {
-            throw new NotImplementedException();
+            Console.WriteLine($"Recived {message.Type}");
+            //throw new NotImplementedException();
         }
 
         private void NetIOComplete(object sender, SocketAsyncEventArgs args)
@@ -132,7 +146,7 @@ namespace Ghost.Network
 
                     }
                     var newArgs = Memory.GetReciveArgs();
-                    newArgs.RemoteEndPoint = Any;
+                    newArgs.Completed += m_io_handler;
                     if (!m_socket.ReceiveFromAsync(newArgs))
                         NetIOComplete(m_socket, newArgs);
                     break;
@@ -158,18 +172,19 @@ namespace Ghost.Network
 
         private IEnumerable<INetMessage> TransformFlow(SocketAsyncEventArgs args)
         {
-            var buffer = Memory.GetBuffer();
             var collection = NetBufferCollection<INetMessage>.Allocate();
+            var buffer = (INetBuffer)args.UserToken;
             buffer.SetBuffer(args);
             while (buffer.Remaining > HeaderSize)
             {
                 var message = Memory.GetMessage();
                 message.Type = (NetMessageType)buffer.ReadByte();
-
-
+                var temp01 = buffer.ReadUInt16();
+                var temp02 = buffer.ReadUInt16();
+                buffer.Read(message, (temp02 + 7) >> 3);
                 collection.Add(message);
             }
-            buffer.Free();
+            args.Completed -= m_io_handler;
             Memory.Free(args);
             return collection;
         }

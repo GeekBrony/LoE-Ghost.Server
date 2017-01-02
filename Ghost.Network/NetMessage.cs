@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Ghost.Network.Buffers;
+using System;
 using System.Net.Sockets;
 
 namespace Ghost.Network
@@ -192,9 +193,13 @@ namespace Ghost.Network
 
         short ReadInt16();
 
+        ushort ReadUInt16();
+
         int ReadInt32();
 
         long ReadInt64();
+
+        void Read(INetBuffer buffer, int length);
 
         void Write(bool value);
 
@@ -206,13 +211,13 @@ namespace Ghost.Network
 
         void Write(long value);
 
+        void Write(byte[] buffer, int offset, int length);
+
         void Free();
 
         void SetBuffer(byte[] buffer);
 
-        void SetBuffer(int offset, int length);
-
-        void SetBuffer(ArraySegment<byte> seg);
+        void SetBuffer(BufferSegment segment);
 
         void SetBuffer(SocketAsyncEventArgs args);
 
@@ -224,6 +229,7 @@ namespace Ghost.Network
         NetPeer Peer
         {
             get;
+            set;
         }
 
         NetMessageType Type
@@ -235,6 +241,7 @@ namespace Ghost.Network
         NetConnection Sender
         {
             get;
+            set;
         }
 
         void BindTo(SocketAsyncEventArgs args);

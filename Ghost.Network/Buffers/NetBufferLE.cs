@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Ghost.Network.Buffers
 {
@@ -13,10 +14,10 @@ namespace Ghost.Network.Buffers
         protected byte* m_length;
         protected int m_ref_count;
         protected GCHandle m_handle;
-        protected bool m_track_free;
         protected byte m_bits_offset;
+        protected BufferSegment m_segment;
         protected NetMemoryManager m_manager;
-        protected ArraySegment<byte> m_segment;
+        protected ArraySegment<byte> m_buffer;
 
         public long Length
         {
@@ -46,7 +47,7 @@ namespace Ghost.Network.Buffers
         {
             get
             {
-                return m_length - m_start;
+                return m_length - m_offset;
             }
         }
 
@@ -83,13 +84,14 @@ namespace Ghost.Network.Buffers
         {
             if (m_handle.IsAllocated)
             {
-                m_end = (byte*)0;
-                m_start = (byte*)0;
-                m_offset = (byte*)0;
-                m_length = (byte*)0;
-                m_bits_offset = 0;
-                m_handle.Free();
-                m_segment = default(ArraySegment<byte>);
+                if (m_segment.IsAllocated)
+                {
+                    if (Interlocked.Decrement(ref m_ref_count) == 0)
+                        m_segment.Free();
+                    else return;
+                }
+                FreeBuffer();
+                m_manager.Free(this);
             }
         }
 
@@ -98,38 +100,34 @@ namespace Ghost.Network.Buffers
             SetBuffer(buffer, 0, buffer.Length);
         }
 
-        public void SetBuffer(int offset, int length)
+        public void SetBuffer(BufferSegment segment)
         {
-            SetBuffer(m_segment.Array, offset, length);
-        }
-
-        public void SetBuffer(ArraySegment<byte> seg)
-        {
-            if (seg.Array == null)
-                throw new ArgumentNullException(nameof(seg));
-            SetBuffer(seg.Array, seg.Offset, seg.Count);
+            if (!segment.IsAllocated)
+                throw new ArgumentNullException(nameof(segment));
+            SetBuffer(segment.Buffer, segment.Offset, segment.Length);
+            m_ref_count = 1;
+            m_segment = segment;
         }
 
         public void SetBuffer(SocketAsyncEventArgs args)
         {
             if (args == null)
                 throw new ArgumentNullException(nameof(args));
-            SetBuffer(args.Buffer, args.Offset, args.Count);
+            if (args.Buffer != m_segment.Buffer)
+                SetBuffer(args.Buffer, args.Offset, args.Count);
             if (args.BytesTransferred > 0)
                 m_length = m_start + args.BytesTransferred;
         }
 
         public void SetBuffer(byte[] buffer, int offset, int length)
         {
-            if (buffer == null)
-                throw new ArgumentNullException(nameof(buffer));
-            if (offset < 0 || offset > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            if (length < 0 || (offset + length) > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(length));
-            if (m_handle.IsAllocated) Free();
-            m_segment = new ArraySegment<byte>(buffer, offset, length);
+            CheckBuffer(buffer, offset, length);
+            if (m_segment.IsAllocated)
+                m_segment.Free();
+            if (m_handle.IsAllocated)
+                FreeBuffer();
             m_handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            m_buffer = new ArraySegment<byte>(buffer, offset, length);
             m_start = (byte*)m_handle.AddrOfPinnedObject().ToPointer() + offset;
             m_end = m_start + length;
             m_length = m_start;
@@ -170,6 +168,18 @@ namespace Ghost.Network.Buffers
             return value;
         }
 
+        public ushort ReadUInt16()
+        {
+            CheckRead(sizeof(ushort));
+            ushort value;
+            if (m_bits_offset == 0)
+                value = *(ushort*)m_offset;
+            else
+                value = (ushort)((*(ushort*)m_offset | (ulong)m_offset[sizeof(ushort)] << (sizeof(ushort) << 3)) >> m_bits_offset);
+            m_offset += sizeof(ushort);
+            return value;
+        }
+
         public int ReadInt32()
         {
             CheckRead(sizeof(int));
@@ -192,6 +202,20 @@ namespace Ghost.Network.Buffers
                 value = (long)((*(ulong*)m_offset >> m_bits_offset) | ((ulong)m_offset[sizeof(ulong)] << ((sizeof(ulong) << 3) - m_bits_offset)));
             m_offset += sizeof(long);
             return value;
+        }
+
+        public void Read(INetBuffer buffer, int bytes)
+        {
+            CheckRead(sizeof(byte) * bytes);
+            unsafe
+            {
+                var myBuffer = (byte[])m_handle.Target;
+                var myOffset = (int)(m_start - (byte*)m_handle.AddrOfPinnedObject().ToPointer());
+                if (m_bits_offset == 0)
+                    buffer.Write(myBuffer, myOffset, bytes);
+                else throw new NotImplementedException();
+            }
+            m_offset += bytes;
         }
 
         public void Write(bool value)
@@ -281,6 +305,21 @@ namespace Ghost.Network.Buffers
                 m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
+        public void Write(byte[] buffer, int offset, int length)
+        {
+            CheckBuffer(buffer, offset, length);
+            CheckWrite(sizeof(byte) * length);
+            fixed (byte* src = &buffer[offset])
+            {
+                if (m_bits_offset == 0)
+                    Buffer.MemoryCopy(src, m_offset, m_end - m_offset, length);
+                else throw new NotImplementedException();
+            }
+            m_offset += length;
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void CheckRead(int length)
         {
@@ -292,20 +331,44 @@ namespace Ghost.Network.Buffers
         protected void CheckWrite(int length)
         {
             if ((m_offset + length) > m_end)
-            {
-                var start = m_start;
-                var segment = m_manager.Allocate(m_segment.Count << 1);
-                var handle = GCHandle.Alloc(segment.Array, GCHandleType.Pinned);
-                Buffer.MemoryCopy(m_start, handle.AddrOfPinnedObject().ToPointer(), segment.Count, Length);
-                m_handle.Free();
-                m_manager.Free(m_segment);
-                m_start = (byte*)handle.AddrOfPinnedObject().ToPointer() + segment.Offset;
-                m_end = m_start + segment.Count;
-                m_length = m_start + (m_length - start);
-                m_offset = m_start + (m_offset - start);
-                m_handle = handle;
-                m_segment = segment;
-            }
+                DoExpand((int)((m_offset - m_start) + length));
+        }
+
+        private void DoExpand(int minSize)
+        {
+            var start = m_start;
+            var segment = m_manager.Allocate(minSize);
+            var handle = GCHandle.Alloc(segment.Buffer, GCHandleType.Pinned);
+            Buffer.MemoryCopy(m_start, handle.AddrOfPinnedObject().ToPointer(), segment.Length, Length);         
+            if (m_handle.IsAllocated) m_handle.Free();
+            if (m_segment.IsAllocated) m_segment.Free();
+            m_start = (byte*)handle.AddrOfPinnedObject().ToPointer() + segment.Offset;
+            m_end = m_start + segment.Length;
+            m_length = m_start + (m_length - start);
+            m_offset = m_start + (m_offset - start);
+            m_handle = handle;
+            m_segment = segment;
+        }
+
+        private void FreeBuffer()
+        {
+            m_end = (byte*)0;
+            m_start = (byte*)0;
+            m_offset = (byte*)0;
+            m_length = (byte*)0;
+            m_bits_offset = 0;
+            m_handle.Free();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void CheckBuffer(byte[] buffer, int offset, int length)
+        {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0 || offset > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            if (length < 0 || (offset + length) > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(length));
         }
     }
 }

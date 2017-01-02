@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Threading;
 
@@ -13,6 +12,17 @@ namespace Ghost.Network.Buffers
             {
                 throw new NotImplementedException();
             }
+            set
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public NetMessageType Type
+        {
+            get;
+
+            set;
         }
 
         public NetConnection Sender
@@ -21,15 +31,6 @@ namespace Ghost.Network.Buffers
             {
                 throw new NotImplementedException();
             }
-        }
-
-        public NetMessageType Type
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-
             set
             {
                 throw new NotImplementedException();
@@ -50,6 +51,18 @@ namespace Ghost.Network.Buffers
             {
                 Interlocked.Increment(ref m_ref_count);
                 args.UserToken = this;
+                if (m_segment.IsAllocated)
+                    args.SetBuffer(m_segment.Buffer, m_segment.Offset, m_segment.Length);
+                else
+                {
+                    unsafe
+                    {
+                        var length = (int)(m_end - m_start);
+                        var buffer = (byte[])m_handle.Target;
+                        var offset = (int)(m_start - (byte*)m_handle.AddrOfPinnedObject().ToPointer());
+                        args.SetBuffer(buffer, offset, length);
+                    }
+                }
             }
             else throw new InvalidOperationException("Buffer not set");
         }

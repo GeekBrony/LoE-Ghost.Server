@@ -1,7 +1,8 @@
 ﻿
 using Ghost.Core;
-using Ghost.Core.Utilities;
+using Ghost.Network;
 using System;
+using System.Net;
 
 namespace TestApplication
 {
@@ -18,7 +19,9 @@ namespace TestApplication
 
         static void Main(string[] args)
         {
-            GhostApplication.Startup<TestApplication>();
+            var peer = new NetPeer(TestContext.CreateNetMemoryManager());
+            peer.Initialize(new NetPeerConfiguration("PNet", true) { BindPoint = new IPEndPoint(IPAddress.Any, 14000) });
+            Console.ReadLine();
         }
     }
 }

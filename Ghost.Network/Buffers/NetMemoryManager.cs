@@ -1,6 +1,7 @@
 ﻿using Ghost.Core;
 using System;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 
@@ -23,8 +24,57 @@ namespace Ghost.Network.Buffers
         void Free(SocketAsyncEventArgs args);
     }
 
+    public struct BufferSegment
+    {
+        private NetMemoryManager m_manager;
+
+        public int Index
+        {
+            get; private set;
+        }
+
+        public int Offset
+        {
+            get; private set;
+        }
+
+        public int Length
+        {
+            get; private set;
+        }
+
+        public byte[] Buffer
+        {
+            get; private set;
+        }
+
+        public INetMemoryManager Manager => m_manager;
+
+        public bool IsAllocated => Buffer != null;
+
+        internal BufferSegment(int index, byte[] buffer, int offset, int length, NetMemoryManager manager)
+        {
+            Index = index;
+            Buffer = buffer;
+            Offset = offset;
+            Length = length;
+            m_manager = manager;
+        }
+
+        public void Free()
+        {
+            m_manager?.Free(this);
+            Buffer = null;
+            m_manager = null;
+            Offset = 0;
+            Length = 0;
+        }
+    }
+
     internal class NetMemoryManager : INetMemoryManager
     {
+        private static readonly EndPoint Any = new IPEndPoint(IPAddress.Any, 0);
+
         private class Factory
         {
             public readonly Func<INetBuffer> BufferGenerator;
@@ -61,36 +111,35 @@ namespace Ghost.Network.Buffers
         }
 
         private const int MinIndex = 6;
-        private const int MaxIndex = 18;
         private const int MinLength = 1 << MinIndex;
-        private const int MaxLength = 1 << MaxIndex;
-        private const int RecivePools = 4;
-        private const int ReciveLength = 1 << 13;
-        private const int SegmentPools = MaxIndex - MinIndex;
-        private const int MemoryPools = SegmentPools + RecivePools;
+        private const int RecivePools = 6;
+        private const int SegmentPools = 8;
+        private const int ReciveLength = 8192;
+        private const int MemoryPoolSegmentsCount = SegmentPools + RecivePools;
+        private const int MemoryPoolSegmentsLength = 524288;
 
         private Factory m_factory;
         private MemoryPool m_pool_memory;
         private ObjectPool<INetBuffer> m_pool_buffers;
         private ObjectPool<INetMessage> m_pool_messages;
+        private ConcurrentQueue<BufferSegment>[] m_segments;
         private ObjectPool<SocketAsyncEventArgs> m_pool_socket_args;
-        private ConcurrentQueue<ArraySegment<byte>>[] m_segments;
 
         public NetMemoryManager()
         {
             m_factory = new Factory(this);
-            m_pool_memory = new MemoryPool(MaxLength, MemoryPools);
-            m_segments = new ConcurrentQueue<ArraySegment<byte>>[SegmentPools];
+            m_segments = new ConcurrentQueue<BufferSegment>[SegmentPools];
             m_pool_buffers = new ObjectPool<INetBuffer>(256, m_factory.BufferGenerator);
             m_pool_messages = new ObjectPool<INetMessage>(256, m_factory.MessageGenerator);
+            m_pool_memory = new MemoryPool(MemoryPoolSegmentsLength, MemoryPoolSegmentsCount);
             m_pool_socket_args = new ObjectPool<SocketAsyncEventArgs>(512, m_factory.SocketArgsGenerator);
             for (int index = 0; index < m_segments.Length; index++)
             {
-                m_segments[index] = new ConcurrentQueue<ArraySegment<byte>>();
-                GenerateSegments(index);
+                m_segments[index] = new ConcurrentQueue<BufferSegment>();
+                GenerateSegments(index, true);
             }
             for (int index = 0; index < RecivePools; index++)
-                GenerateSegments(m_segments.Length - 1);
+                GenerateSegments(m_segments.Length - 1, true);
         }
 
         public INetBuffer GetBuffer()
@@ -126,18 +175,20 @@ namespace Ghost.Network.Buffers
 
         public SocketAsyncEventArgs GetReciveArgs()
         {
-            var segment = Allocate(ReciveLength);
+            var message = GetMessage(ReciveLength);
             var socketArgs = m_pool_socket_args.Allocate();
-            socketArgs.SetBuffer(segment.Array, segment.Offset, segment.Count);
+            socketArgs.RemoteEndPoint = Any;
+            message.BindTo(socketArgs);
+            message.Free();
             return socketArgs;
         }
 
-        public ArraySegment<byte> Allocate(int minSize)
+        public BufferSegment Allocate(int minSize)
         {
             var index = Index(minSize);
-            ArraySegment<byte> segment;
+            BufferSegment segment;
             while (!m_segments[index].TryDequeue(out segment))
-                GenerateSegments(index);
+                GenerateSegments(index, false);
             return segment;
         }
 
@@ -149,30 +200,36 @@ namespace Ghost.Network.Buffers
             else m_pool_buffers.Release(buffer);
         }
 
+        public void Free(BufferSegment segment)
+        {
+            if (segment.Manager != this)
+                throw new InvalidOperationException();
+            m_segments[segment.Index].Enqueue(segment);
+        }
+
         public void Free(SocketAsyncEventArgs args)
         {
-            Free(new ArraySegment<byte>(args.Buffer, args.Offset, args.Count));
+            if (args.UserToken is INetMessage)
+                ((INetMessage)args.UserToken).Free();
+            args.UserToken = null;
             args.SetBuffer(null, 0, 0);
+            args.RemoteEndPoint = null;
             m_pool_socket_args.Release(args);
         }
 
-        public void Free(ArraySegment<byte> segment)
-        {
-            m_segments[Index(segment.Count)].Enqueue(segment);
-        }
-
-        private void GenerateSegments(int index)
+        private void GenerateSegments(int index, bool force)
         {
             var pool = m_segments[index];
             lock (pool)
             {
-                if (pool.Count > 0)
+                if (!force && pool.Count > 0)
                     return;
                 index += MinIndex;
-                int length = 1 << index, count = MaxLength >> index;
+                int length = 1 << index, count = MemoryPoolSegmentsLength >> index;
+                index -= MinIndex;
                 var buffer = m_pool_memory.Allocate();
                 for (int i = 0; i < count; i++)
-                    pool.Enqueue(new ArraySegment<byte>(buffer, i * length, length));
+                    pool.Enqueue(new BufferSegment(index, buffer, i * length, length, this));
             }
         }
 
@@ -181,7 +238,7 @@ namespace Ghost.Network.Buffers
         {
             if (length <= MinLength)
                 return 0;
-            if (length >= MaxLength)
+            if (length >= MemoryPoolSegmentsLength)
                 throw new ArgumentOutOfRangeException(nameof(length));
             var vdouble = 0d;
             length--;
@@ -194,10 +251,20 @@ namespace Ghost.Network.Buffers
             unsafe
             {
                 var dest = (uint*)&vdouble;
-                dest[BitConverter.IsLittleEndian ? 1 : 0] = 0x43300000;
-                dest[BitConverter.IsLittleEndian ? 0 : 1] = (uint)length;
-                vdouble -= 4503599627370496.0d;
-                return (int)(((dest[BitConverter.IsLittleEndian ? 1 : 0] >> 20) - 0x3FF) - MinIndex);
+                if (BitConverter.IsLittleEndian)
+                {
+                    dest[1] = 0x43300000;
+                    dest[0] = (uint)length;
+                    vdouble -= 4503599627370496.0d;
+                    return (int)(((dest[1] >> 20) - 0x3FF) - MinIndex);
+                }
+                else
+                {
+                    dest[0] = 0x43300000;
+                    dest[1] = (uint)length;
+                    vdouble -= 4503599627370496.0d;
+                    return (int)(((dest[0] >> 20) - 0x3FF) - MinIndex);
+                }
             }
         }
     }

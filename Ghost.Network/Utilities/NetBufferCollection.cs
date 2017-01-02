@@ -25,7 +25,7 @@ namespace Ghost.Network.Utilities
         {
             get
             {
-                if (m_position > 0 && m_position < m_collection.Length)
+                if (m_position < 0 || m_position >= m_collection.Length)
                     return default(T);
                 return m_collection[m_position];
             }
@@ -35,8 +35,8 @@ namespace Ghost.Network.Utilities
         {
             get
             {
-                if (m_position > 0 && m_position < m_collection.Length)
-                    return null;
+                if (m_position < 0 || m_position >= m_collection.Length)
+                    return default(T);
                 return m_collection[m_position];
             }
         }
@@ -65,15 +65,13 @@ namespace Ghost.Network.Utilities
         {
             if (m_collection.Length > GrowthCount)
                 m_collection = new T[GrowthCount];
-            else
-                Array.Clear(m_collection, 0, m_collection.Length);
+            else Array.Clear(m_collection, 0, m_collection.Length);
             s_pool.Release(this);
         }
 
         bool IEnumerator.MoveNext()
         {
-            m_position++;
-            return m_position < m_collection.Length;
+            return ++m_position < m_index;
         }
 
         public IEnumerator<T> GetEnumerator()
