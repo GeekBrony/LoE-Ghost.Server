@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Ghost.Core;
 using NHibernate;
-using Ghost.Core;
+using System;
 
 namespace Ghost.Data
 {

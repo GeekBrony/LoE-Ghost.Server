@@ -1,13 +1,8 @@
-﻿using DryIoc;
-using Ghost.Core;
-using Ghost.Network.Buffers;
+﻿using Ghost.Network.Buffers;
 using Ghost.Network.Utilities;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -48,13 +43,17 @@ namespace Ghost.Network
         private Timer m_heart;
         private Socket m_socket;
         private ActionBlock<INetMessage> m_handler;
-        private NetPeerConfiguration m_configuration;
         private EventHandler<SocketAsyncEventArgs> m_io_handler;
         private TransformBlock<INetMessage, INetMessage> m_transform02;
         private ConcurrentDictionary<EndPoint, NetConnection> m_connections;
         private TransformManyBlock<SocketAsyncEventArgs, INetMessage> m_transform01;
 
         public INetMemoryManager Memory
+        {
+            get; private set;
+        }
+
+        public NetPeerConfiguration Configuration
         {
             get; private set;
         }
@@ -79,7 +78,7 @@ namespace Ghost.Network
 
         public void Initialize(NetPeerConfiguration configuration)
         {
-            m_configuration = configuration;
+            Configuration = configuration;
             m_socket = new Socket(configuration.BindPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_socket.Bind(configuration.BindPoint);
             var args = Memory.GetReciveArgs();
@@ -111,7 +110,7 @@ namespace Ghost.Network
                         //ToDo: use logging
                     }
                 }
-                if (connection.WaitingForApproval)
+                if (connection.AwaitingApproval)
                 {
                     //ToDo: use settings
                     if (connection.ConnectionTime.AddSeconds(10) < DateTime.Now)
@@ -128,8 +127,39 @@ namespace Ghost.Network
 
         private void ProcessFlow(INetMessage message)
         {
-            Console.WriteLine($"Recived {message.Type}");
-            //throw new NotImplementedException();
+            var connection = message.Sender;
+            var test = message.Debug();
+            switch (message.Type)
+            {
+                case NetMessageType.Connect:
+                    if (Configuration.CanAccept)
+                        connection.ProcessConnect(0d, message);
+                    else
+                    {
+
+                    }
+                    break;
+            }
+            message.Free();
+        }
+
+        private NetConnection Generate(EndPoint remote)
+        {
+            return Memory.GetConnection().Initialize(this, remote, NetConnectionState.ConnectionInitiation);
+        }
+
+        private INetMessage TransformFlow(INetMessage message)
+        {
+            var flags = (SpecialMessageFlags)message.ReadByte();
+            if ((flags & SpecialMessageFlags.Encrypted) > 0)
+            {
+
+            }
+            if ((flags & SpecialMessageFlags.Compressed) > 0)
+            {
+
+            }
+            return message;
         }
 
         private void NetIOComplete(object sender, SocketAsyncEventArgs args)
@@ -156,32 +186,24 @@ namespace Ghost.Network
             }
         }
 
-        private INetMessage TransformFlow(INetMessage message)
-        {
-            var flags = (SpecialMessageFlags)message.ReadByte();
-            if ((flags & SpecialMessageFlags.Encrypted) > 0)
-            {
-
-            }
-            if ((flags & SpecialMessageFlags.Compressed) > 0)
-            {
-
-            }
-            return message;
-        }
-
         private IEnumerable<INetMessage> TransformFlow(SocketAsyncEventArgs args)
         {
-            var collection = NetBufferCollection<INetMessage>.Allocate();
             var buffer = (INetBuffer)args.UserToken;
-            buffer.SetBuffer(args);
+            buffer.Length = args.BytesTransferred;
+            var collection = NetBufferCollection<INetMessage>.Allocate();
+            var connection = m_connections.GetOrAdd(args.RemoteEndPoint, Generate);
             while (buffer.Remaining > HeaderSize)
             {
                 var message = Memory.GetMessage();
+                message.Peer = this;
+                message.Sender = connection;
                 message.Type = (NetMessageType)buffer.ReadByte();
-                var temp01 = buffer.ReadUInt16();
-                var temp02 = buffer.ReadUInt16();
-                buffer.Read(message, (temp02 + 7) >> 3);
+                var temp = buffer.ReadUInt16();
+                message.Sequence = (ushort)(temp >> 1);
+                message.IsFragmented = (temp & 1) == 1;
+                temp = buffer.ReadUInt16();
+                buffer.Read(message, (temp + 7) >> 3);
+                message.Position = 0;
                 collection.Add(message);
             }
             args.Completed -= m_io_handler;

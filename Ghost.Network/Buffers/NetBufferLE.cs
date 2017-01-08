@@ -1,7 +1,9 @@
-﻿using System;
+﻿using Ghost.Core.Utilities;
+using System;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 
 namespace Ghost.Network.Buffers
@@ -17,13 +19,18 @@ namespace Ghost.Network.Buffers
         protected byte m_bits_offset;
         protected BufferSegment m_segment;
         protected NetMemoryManager m_manager;
-        protected ArraySegment<byte> m_buffer;
 
         public long Length
         {
             get
             {
                 return m_length - m_start;
+            }
+            set
+            {
+                if (value < 0 || value >= Capacity)
+                    throw new ReplaceMeException();
+                m_length = m_start + value;
             }
         }
 
@@ -32,6 +39,13 @@ namespace Ghost.Network.Buffers
             get
             {
                 return m_offset - m_start;
+            }
+            set
+            {
+                if (value < 0 || value >= Capacity)
+                    throw new ReplaceMeException();
+                m_offset = m_start + value;
+                m_bits_offset = 0;
             }
         }
 
@@ -82,9 +96,9 @@ namespace Ghost.Network.Buffers
 
         public void Free()
         {
-            if (m_handle.IsAllocated)
+            if (m_segment.IsAllocated)
             {
-                if (m_segment.IsAllocated)
+                if (m_segment.IsManaged)
                 {
                     if (Interlocked.Decrement(ref m_ref_count) == 0)
                         m_segment.Free();
@@ -93,6 +107,17 @@ namespace Ghost.Network.Buffers
                 FreeBuffer();
                 m_manager.Free(this);
             }
+        }
+
+        public byte[] Debug()
+        {
+            var array = new byte[Length];
+            fixed (byte* ar = array)
+            {
+                for (byte* src = m_start, dest = ar; src != m_end; src++, dest++)
+                    *dest = *src;
+            }
+            return array;
         }
 
         public void SetBuffer(byte[] buffer)
@@ -126,8 +151,8 @@ namespace Ghost.Network.Buffers
                 m_segment.Free();
             if (m_handle.IsAllocated)
                 FreeBuffer();
+            m_segment = new BufferSegment(-1, buffer, offset, length, null);
             m_handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-            m_buffer = new ArraySegment<byte>(buffer, offset, length);
             m_start = (byte*)m_handle.AddrOfPinnedObject().ToPointer() + offset;
             m_end = m_start + length;
             m_length = m_start;
@@ -204,13 +229,63 @@ namespace Ghost.Network.Buffers
             return value;
         }
 
+        public float ReadSingle()
+        {
+            var value = ReadInt32();
+            return *(float*)(&value);
+        }
+
+        public double ReadDouble()
+        {
+            var value = ReadInt64();
+            return *(double*)(&value);
+        }
+
+        public string ReadString()
+        {
+            string value;
+            var length = (int)ReadUInt32Var();
+            if (length > 0 && length <= Remaining)
+            {
+                if (m_bits_offset == 0)
+                    value = Encoding.UTF8.GetString(m_offset, length);
+                else throw new NotImplementedException();
+            }
+            else if (length == 0)
+                return string.Empty;
+            else throw new NotImplementedException();
+            m_offset += length;
+            return value;
+        }
+
+        public int ReadInt32Var()
+        {
+            var result = ReadUInt32Var();
+            return (int)(result >> 1) ^ -(int)(result & 1);
+        }
+
+        public uint ReadUInt32Var()
+        {
+            var result = 0;
+            var offset = 0;
+            while (Remaining > 0)
+            {
+                var temp = ReadByte();
+                result |= (temp & 0x7f) << offset;
+                offset += 7;
+                if ((temp & 0x80) == 0 || offset == 35)
+                    break;
+            }
+            return (uint)result;
+        }
+
         public void Read(INetBuffer buffer, int bytes)
         {
             CheckRead(sizeof(byte) * bytes);
             unsafe
             {
                 var myBuffer = (byte[])m_handle.Target;
-                var myOffset = (int)(m_start - (byte*)m_handle.AddrOfPinnedObject().ToPointer());
+                var myOffset = (int)(m_offset - (byte*)m_handle.AddrOfPinnedObject().ToPointer());
                 if (m_bits_offset == 0)
                     buffer.Write(myBuffer, myOffset, bytes);
                 else throw new NotImplementedException();
@@ -334,20 +409,15 @@ namespace Ghost.Network.Buffers
                 DoExpand((int)((m_offset - m_start) + length));
         }
 
-        private void DoExpand(int minSize)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void CheckBuffer(byte[] buffer, int offset, int length)
         {
-            var start = m_start;
-            var segment = m_manager.Allocate(minSize);
-            var handle = GCHandle.Alloc(segment.Buffer, GCHandleType.Pinned);
-            Buffer.MemoryCopy(m_start, handle.AddrOfPinnedObject().ToPointer(), segment.Length, Length);         
-            if (m_handle.IsAllocated) m_handle.Free();
-            if (m_segment.IsAllocated) m_segment.Free();
-            m_start = (byte*)handle.AddrOfPinnedObject().ToPointer() + segment.Offset;
-            m_end = m_start + segment.Length;
-            m_length = m_start + (m_length - start);
-            m_offset = m_start + (m_offset - start);
-            m_handle = handle;
-            m_segment = segment;
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0 || offset > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            if (length < 0 || (offset + length) > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(length));
         }
 
         private void FreeBuffer()
@@ -358,17 +428,24 @@ namespace Ghost.Network.Buffers
             m_length = (byte*)0;
             m_bits_offset = 0;
             m_handle.Free();
+            m_segment = default(BufferSegment);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void CheckBuffer(byte[] buffer, int offset, int length)
+        private void DoExpand(int minSize)
         {
-            if (buffer == null)
-                throw new ArgumentNullException(nameof(buffer));
-            if (offset < 0 || offset > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            if (length < 0 || (offset + length) > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(length));
+            var start = m_start;
+            var segment = m_manager.Allocate(minSize);
+            var handle = GCHandle.Alloc(segment.Buffer, GCHandleType.Pinned);
+            var offset = (byte*)handle.AddrOfPinnedObject().ToPointer() + segment.Offset;
+            Buffer.MemoryCopy(m_start, offset, segment.Length, Length);
+            if (m_handle.IsAllocated) m_handle.Free();
+            if (m_segment.IsAllocated) m_segment.Free();
+            m_start = offset;
+            m_end = m_start + segment.Length;
+            m_length = m_start + (m_length - start);
+            m_offset = m_start + (m_offset - start);
+            m_handle = handle;
+            m_segment = segment;
         }
     }
 }

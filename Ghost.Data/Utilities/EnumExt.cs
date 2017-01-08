@@ -8,6 +8,13 @@ namespace Ghost.Data.Utilities
         Scripted
     }
 
+    public enum ScriptType
+    {
+        None,
+        Condition
+    }
+    
+
     public enum Stats : byte
     {
         None,
@@ -35,7 +42,21 @@ namespace Ghost.Data.Utilities
         Filly,
         Colt,
         Mare,
-        Stallion
+        Stallion,
+        BatStallion,
+        BatMare,
+        CrystalMare,
+        CrystalStallion
+    }
+
+    public enum CharacterType : byte
+    {
+        None,
+        EarthPony,
+        Unicorn,
+        Pegasus,
+        Moose,
+        Gryphon
     }
 
     [Flags]

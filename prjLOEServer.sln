@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26020.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{00F003BD-4494-4E9D-92EB-B2B57BF9E44A}"
 EndProject
@@ -41,6 +41,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestApplication", "TestApplication\TestApplication.csproj", "{F4F2D8AC-196C-4803-A146-A672F439E677}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ghost.Scripting", "Ghost.Scripting\Ghost.Scripting.csproj", "{1DEF59AD-24A6-4FF3-A0FE-D1716AE4052B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ghost.Terrain", "Ghost.Terrain\Ghost.Terrain.csproj", "{AF603CC4-920F-457F-B959-1323FA156D07}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -138,6 +140,14 @@ Global
 		{1DEF59AD-24A6-4FF3-A0FE-D1716AE4052B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1DEF59AD-24A6-4FF3-A0FE-D1716AE4052B}.Release|x64.ActiveCfg = Release|x64
 		{1DEF59AD-24A6-4FF3-A0FE-D1716AE4052B}.Release|x64.Build.0 = Release|x64
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Debug|x64.ActiveCfg = Debug|x64
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Debug|x64.Build.0 = Debug|x64
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Release|x64.ActiveCfg = Release|x64
+		{AF603CC4-920F-457F-B959-1323FA156D07}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -152,5 +162,6 @@ Global
 		{D8220176-2A26-45A1-93A8-DBD90B441BCF} = {088D70B7-97B4-4ED3-8229-9C59DCF8B2CD}
 		{94F47E8C-B499-404C-87A9-FDD2D1DBFCB0} = {088D70B7-97B4-4ED3-8229-9C59DCF8B2CD}
 		{1DEF59AD-24A6-4FF3-A0FE-D1716AE4052B} = {088D70B7-97B4-4ED3-8229-9C59DCF8B2CD}
+		{AF603CC4-920F-457F-B959-1323FA156D07} = {088D70B7-97B4-4ED3-8229-9C59DCF8B2CD}
 	EndGlobalSection
 EndGlobal

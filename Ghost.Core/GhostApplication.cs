@@ -17,6 +17,8 @@ namespace Ghost.Core
         public static void Startup<TApplication>()
             where TApplication : GhostApplication
         {
+            if (Current?.IsRunning ?? false)
+                throw new ReplaceMeException();
             lock (s_lock)
             {
                 if (Current?.IsRunning ?? false)
@@ -90,9 +92,7 @@ namespace Ghost.Core
         {
             m_state = ApplicationState.Initializing;
             RegisterDefaults();
-            m_commands.Command("exit", AccessLevel.Admin)
-                .Description("Exit application")
-                .Handler(ExitCommand);
+            RegisterCommands();
             OnInitialize();
             m_state = ApplicationState.Initialized;
         }
@@ -103,6 +103,13 @@ namespace Ghost.Core
             m_container.Register<ISettingsManager, SettingsManager>(Reuse.Singleton);
             m_commands = m_container.Resolve<ICommandManager>();
             m_settings = m_container.Resolve<ISettingsManager>();
+        }
+
+        private void RegisterCommands()
+        {
+            m_commands.Command("exit", AccessLevel.Admin)
+                .Description("Exit application")
+                .Handler(ExitCommand);
         }
 
         private void ApplicationStart()

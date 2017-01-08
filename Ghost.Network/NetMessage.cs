@@ -1,5 +1,4 @@
 ﻿using Ghost.Network.Buffers;
-using System;
 using System.Net.Sockets;
 
 namespace Ghost.Network
@@ -170,11 +169,13 @@ namespace Ghost.Network
         long Length
         {
             get;
+            set;
         }
 
         long Position
         {
             get;
+            set;
         }
 
         long Capacity
@@ -186,7 +187,7 @@ namespace Ghost.Network
         {
             get;
         }
-
+        byte[] Debug();
         bool ReadBoolean();
 
         byte ReadByte();
@@ -198,6 +199,16 @@ namespace Ghost.Network
         int ReadInt32();
 
         long ReadInt64();
+
+        float ReadSingle();
+
+        double ReadDouble();
+
+        string ReadString();
+
+        int ReadInt32Var();
+
+        uint ReadUInt32Var();
 
         void Read(INetBuffer buffer, int length);
 
@@ -222,6 +233,7 @@ namespace Ghost.Network
         void SetBuffer(SocketAsyncEventArgs args);
 
         void SetBuffer(byte[] buffer, int offset, int length);
+
     }
 
     public interface INetMessage : INetBuffer
@@ -237,8 +249,20 @@ namespace Ghost.Network
             get;
             set;
         }
-
+        
         NetConnection Sender
+        {
+            get;
+            set;
+        }
+
+        ushort Sequence
+        {
+            get;
+            set;
+        }
+
+        bool IsFragmented
         {
             get;
             set;
