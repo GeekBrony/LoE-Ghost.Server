@@ -36,15 +36,12 @@ namespace Ghost.Core
 
         public T Allocate()
         {
-            object item;
-            while (m_pool.TryDequeue(out item))
+            while (m_pool.TryDequeue(out var item))
             {
-                if (item is T)
-                    return (T)item;
-                else if (item is WeakReference<T>)
+                if (item is T strong)
+                    return strong;
+                else if (item is WeakReference<T> weak)
                 {
-                    var weak = (WeakReference<T>)item;
-                    T strong;
                     if (weak.TryGetTarget(out strong))
                     {
                         weak.SetTarget(null);
@@ -60,8 +57,7 @@ namespace Ghost.Core
         {
             if (m_pool.Count >= m_capacity)
             {
-                WeakReference<T> weak;
-                if (s_refs_pool.TryDequeue(out weak))
+                if (s_refs_pool.TryDequeue(out var weak))
                 {
                     weak.SetTarget(item);
                     m_pool.Enqueue(weak);

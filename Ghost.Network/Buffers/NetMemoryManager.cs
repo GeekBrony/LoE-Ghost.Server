@@ -7,74 +7,6 @@ using System.Runtime.CompilerServices;
 
 namespace Ghost.Network.Buffers
 {
-    public interface INetMemoryManager
-    {
-        INetBuffer GetBuffer();
-
-        INetMessage GetMessage();
-
-        NetConnection GetConnection();
-
-        INetBuffer GetBuffer(int minSize);
-
-        INetMessage GetMessage(int minSize);
-
-        SocketAsyncEventArgs GetSendArgs();
-
-        SocketAsyncEventArgs GetReciveArgs();
-
-        void Free(SocketAsyncEventArgs args);
-    }
-
-    public struct BufferSegment
-    {
-        private NetMemoryManager m_manager;
-
-        public int Index
-        {
-            get; private set;
-        }
-
-        public int Offset
-        {
-            get; private set;
-        }
-
-        public int Length
-        {
-            get; private set;
-        }
-
-        public byte[] Buffer
-        {
-            get; private set;
-        }
-
-        public bool IsManaged => m_manager != null;
-
-        public bool IsAllocated => Buffer != null;
-
-        public INetMemoryManager Manager => m_manager;
-
-        internal BufferSegment(int index, byte[] buffer, int offset, int length, NetMemoryManager manager)
-        {
-            Index = index;
-            Buffer = buffer;
-            Offset = offset;
-            Length = length;
-            m_manager = manager;
-        }
-
-        public void Free()
-        {
-            m_manager?.Free(this);
-            Buffer = null;
-            m_manager = null;
-            Offset = 0;
-            Length = 0;
-        }
-    }
-
     internal class NetMemoryManager : INetMemoryManager
     {
         private static readonly EndPoint Any = new IPEndPoint(IPAddress.Any, 0);
@@ -216,8 +148,8 @@ namespace Ghost.Network.Buffers
         public void Free<T>(T buffer)
             where T : INetBuffer
         {
-            if (buffer is INetMessage)
-                m_pool_messages.Release((INetMessage)buffer);
+            if (buffer is INetMessage message)
+                m_pool_messages.Release(message);
             else m_pool_buffers.Release(buffer);
         }
 
@@ -228,10 +160,15 @@ namespace Ghost.Network.Buffers
             m_segments[segment.Index].Enqueue(segment);
         }
 
+        public void Free(NetConnection connection)
+        {
+            m_pool_connections.Release(connection);
+        }
+
         public void Free(SocketAsyncEventArgs args)
         {
-            if (args.UserToken is INetBuffer)
-                ((INetBuffer)args.UserToken).Free();
+            if (args.UserToken is INetBuffer buffer)
+                buffer.Free();
             args.UserToken = null;
             args.SetBuffer(null, 0, 0);
             args.RemoteEndPoint = null;

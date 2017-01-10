@@ -1,7 +1,4 @@
-﻿using Ghost.Network.Buffers;
-using System.Net.Sockets;
-
-namespace Ghost.Network
+﻿namespace Ghost.Network.Utilities
 {
     public enum NetMessageType : byte
     {
@@ -158,135 +155,21 @@ namespace Ghost.Network
         Special = 255// special case (extra header flags)
     }
 
+    public enum NetConnectionState
+    {
+        None,
+        Disconnected,
+
+        ConnectionInitiation,
+
+        AwaitingApproval,
+
+        Connected,
+    }
+
     public enum SpecialMessageFlags : byte
     {
         Encrypted = 1,
         Compressed = 2,
-    }
-
-    public interface INetBuffer
-    {
-        long Length
-        {
-            get;
-            set;
-        }
-
-        long Position
-        {
-            get;
-            set;
-        }
-
-        long Capacity
-        {
-            get;
-        }
-
-        long Remaining
-        {
-            get;
-        }
-        byte[] Debug();
-        bool ReadBoolean();
-
-        byte ReadByte();
-
-        short ReadInt16();
-
-        ushort ReadUInt16();
-
-        int ReadInt32();
-
-        long ReadInt64();
-
-        float ReadSingle();
-
-        double ReadDouble();
-
-        string ReadString();
-
-        int ReadInt32Var();
-
-        uint ReadUInt32Var();
-
-        void Read(INetBuffer buffer, int length);
-
-        void Write(bool value);
-
-        void Write(byte value);
-
-        void Write(short value);
-
-        void Write(int value);
-
-        void Write(long value);
-
-        void Write(byte[] buffer, int offset, int length);
-
-        void Free();
-
-        void SetBuffer(byte[] buffer);
-
-        void SetBuffer(BufferSegment segment);
-
-        void SetBuffer(SocketAsyncEventArgs args);
-
-        void SetBuffer(byte[] buffer, int offset, int length);
-
-    }
-
-    public interface INetMessage : INetBuffer
-    {
-        NetPeer Peer
-        {
-            get;
-            set;
-        }
-
-        NetMessageType Type
-        {
-            get;
-            set;
-        }
-        
-        NetConnection Sender
-        {
-            get;
-            set;
-        }
-
-        ushort Sequence
-        {
-            get;
-            set;
-        }
-
-        bool IsFragmented
-        {
-            get;
-            set;
-        }
-
-        void BindTo(SocketAsyncEventArgs args);
-    }
-
-    public interface INetSerializable
-    {
-        int AllocSize { get; }
-
-        void OnSerialize(INetMessage message);
-
-        void OnDeserialize(INetMessage message);
-    }
-
-    public interface INetIncomingMessage : INetMessage
-    {
-
-    }
-
-    public interface INetOutgoingMessage : INetMessage
-    {
-
     }
 }

@@ -10,7 +10,9 @@ namespace Ghost.Network.Utilities
         public static class NetMessageChache
         {
             private const string ReadName = "Read";
+            private const string ReadVarName = ReadName + "Var";
             private const string WriteName = "Write";
+            private const string WriteVarName = WriteName + "Var";
 
             private static readonly Type NetSerializable = typeof(INetSerializable);
             private static readonly Type[] SupportedTypes = new[]
@@ -24,8 +26,8 @@ namespace Ghost.Network.Utilities
             private static readonly Dictionary<Type, MethodInfo> s_read_chache;
             private static readonly Dictionary<Type, MethodInfo> s_write_chache;
             //private static readonly Dictionary<Type, MethodInfo> s_try_read_chache;
-            //private static readonly Dictionary<Type, MethodInfo> s_var_read_chache;
-            //private static readonly Dictionary<Type, MethodInfo> s_var_write_chache;
+            private static readonly Dictionary<Type, MethodInfo> s_var_read_chache;
+            private static readonly Dictionary<Type, MethodInfo> s_var_write_chache;
             //private static readonly Dictionary<Type, MethodInfo> s_range_read_chache;
             //private static readonly Dictionary<Type, MethodInfo> s_range_write_chache;
 
@@ -45,6 +47,20 @@ namespace Ghost.Network.Utilities
                     Params = x.GetParameters()
                 })
                 .Where(x => x.Name.StartsWith(WriteName) && x.ReturnType == typeof(void) && x.Params.Length == 1)
+                .ToDictionary(x => x.Params[0].ParameterType, x => x.Method);
+                s_var_read_chache = methods.Where(x =>
+                {
+                    return x.Name.StartsWith(ReadVarName) && x.ReturnType.Name == x.Name.Substring(ReadVarName.Length) && x.GetParameters().Length == 0;
+                })
+                .ToDictionary(x => x.ReturnType, x => x);
+                s_var_write_chache = methods.Select(x => new
+                {
+                    x.Name,
+                    Method = x,
+                    x.ReturnType,
+                    Params = x.GetParameters()
+                })
+                .Where(x => x.Name.StartsWith(WriteVarName) && x.ReturnType == typeof(void) && x.Params.Length == 1)
                 .ToDictionary(x => x.Params[0].ParameterType, x => x.Method);
             }
 
@@ -73,8 +89,8 @@ namespace Ghost.Network.Utilities
                     if (type.IsGenericType)
                     {
                         var genericTypeDef = type.GetGenericTypeDefinition();
-                        if (genericTypeDef == typeof(Nullable<>))
-                            return CanDeserialize(Nullable.GetUnderlyingType(type));
+                        //if (genericTypeDef == typeof(Nullable<>))
+                        //    return CanDeserialize(Nullable.GetUnderlyingType(type));
                         if (genericTypeDef.GetInterfaces().Where(x=> x.IsGenericType).Any(x => SupportedTypes.Contains(x.GetGenericTypeDefinition())))
                             return !type.GetGenericArguments().Any(x => !CanDeserialize(x));    
                     }

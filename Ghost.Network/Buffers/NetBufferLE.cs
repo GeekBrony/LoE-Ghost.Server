@@ -36,57 +36,41 @@ namespace Ghost.Network.Buffers
 
         public long Position
         {
-            get
-            {
-                return m_offset - m_start;
-            }
+            get => m_offset - m_start;
             set
             {
                 if (value < 0 || value >= Capacity)
                     throw new ReplaceMeException();
                 m_offset = m_start + value;
                 m_bits_offset = 0;
+                if (m_offset > m_length)
+                    m_length = m_offset;
             }
         }
 
         public long Capacity
         {
-            get
-            {
-                return m_end - m_start;
-            }
+            get => m_end - m_start;
         }
 
         public long Remaining
         {
-            get
-            {
-                return m_length - m_offset;
-            }
+            get => m_length - m_offset;
         }
 
         public long LengthBits
         {
-            get
-            {
-                return (m_length - m_start) << 3;
-            }
+            get => (m_length - m_start) << 3;
         }
 
         public long PositionBits
         {
-            get
-            {
-                return ((m_offset - m_start) << 3) + m_bits_offset;
-            }
+            get => ((m_offset - m_start) << 3) + m_bits_offset;
         }
 
         public long CapacityBits
         {
-            get
-            {
-                return (m_end - m_start) << 3;
-            }
+            get => (m_end - m_start) << 3;
         }
 
         public NetBufferLE(NetMemoryManager manager)
@@ -107,17 +91,6 @@ namespace Ghost.Network.Buffers
                 FreeBuffer();
                 m_manager.Free(this);
             }
-        }
-
-        public byte[] Debug()
-        {
-            var array = new byte[Length];
-            fixed (byte* ar = array)
-            {
-                for (byte* src = m_start, dest = ar; src != m_end; src++, dest++)
-                    *dest = *src;
-            }
-            return array;
         }
 
         public void SetBuffer(byte[] buffer)
@@ -231,40 +204,61 @@ namespace Ghost.Network.Buffers
 
         public float ReadSingle()
         {
-            var value = ReadInt32();
-            return *(float*)(&value);
+            CheckRead(sizeof(float));
+            float value;
+            if (m_bits_offset == 0)
+                value = *(float*)m_offset;
+            else
+            {
+                var temp = (*(uint*)m_offset | (ulong)m_offset[sizeof(float)] << (sizeof(float) << 3)) >> m_bits_offset;
+                value = *(float*)&temp;
+            }
+            m_offset += sizeof(float);
+            return value;
         }
 
         public double ReadDouble()
         {
-            var value = ReadInt64();
-            return *(double*)(&value);
+            CheckRead(sizeof(double));
+            double value;
+            if (m_bits_offset == 0)
+                value = *(double*)m_offset;
+            else
+            {
+                var temp = (*(ulong*)m_offset >> m_bits_offset) | ((ulong)m_offset[sizeof(double)] << ((sizeof(double) << 3) - m_bits_offset));
+                value = *(double*)&temp;
+            }
+            m_offset += sizeof(double);
+            return value;
         }
 
         public string ReadString()
         {
-            string value;
-            var length = (int)ReadUInt32Var();
+            var length = (int)ReadVarUInt32();
             if (length > 0 && length <= Remaining)
             {
+                var value = string.Empty;
                 if (m_bits_offset == 0)
                     value = Encoding.UTF8.GetString(m_offset, length);
-                else throw new NotImplementedException();
+                else
+                {
+                    var buffer = stackalloc byte[length];
+                    Copy(this, buffer, length);
+                    value = Encoding.UTF8.GetString(buffer, length);
+                }
+                m_offset += length;
+                return value;
             }
-            else if (length == 0)
-                return string.Empty;
-            else throw new NotImplementedException();
-            m_offset += length;
-            return value;
+            return string.Empty;
         }
 
-        public int ReadInt32Var()
+        public int ReadVarInt32()
         {
             var result = ReadUInt32Var();
             return (int)(result >> 1) ^ -(int)(result & 1);
         }
 
-        public uint ReadUInt32Var()
+        public uint ReadVarUInt32()
         {
             var result = 0;
             var offset = 0;
@@ -282,14 +276,9 @@ namespace Ghost.Network.Buffers
         public void Read(INetBuffer buffer, int bytes)
         {
             CheckRead(sizeof(byte) * bytes);
-            unsafe
-            {
-                var myBuffer = (byte[])m_handle.Target;
-                var myOffset = (int)(m_offset - (byte*)m_handle.AddrOfPinnedObject().ToPointer());
-                if (m_bits_offset == 0)
-                    buffer.Write(myBuffer, myOffset, bytes);
-                else throw new NotImplementedException();
-            }
+            if (m_bits_offset == 0)
+                buffer.Write(m_segment.Buffer, (int)(m_segment.Offset + Position), bytes);
+            else Copy(this, buffer, bytes);
             m_offset += bytes;
         }
 
@@ -344,6 +333,24 @@ namespace Ghost.Network.Buffers
                 m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
+        public void Write(ushort value)
+        {
+            CheckWrite(sizeof(ushort));
+            if (m_bits_offset == 0)
+            {
+                *(ushort*)m_offset = value;
+                m_offset += sizeof(ushort);
+            }
+            else
+            {
+                *(ushort*)m_offset = (ushort)((*m_offset & ~(byte.MaxValue << m_bits_offset)) | (value << m_bits_offset));
+                m_offset += sizeof(ushort);
+                *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | ((uint)value >> (sizeof(ushort) << 3) - m_bits_offset));
+            }
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
         public void Write(int value)
         {
             CheckWrite(sizeof(int));
@@ -380,6 +387,96 @@ namespace Ghost.Network.Buffers
                 m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
         }
 
+        public void Write(float value)
+        {
+            CheckWrite(sizeof(float));
+            if (m_bits_offset == 0)
+            {
+                *(float*)m_offset = value;
+                m_offset += sizeof(float);
+            }
+            else
+            {
+                var temp = *(uint*)&value;
+                *(uint*)m_offset = (uint)(*m_offset & ~(byte.MaxValue << m_bits_offset)) | (temp << m_bits_offset);
+                m_offset += sizeof(float);
+                *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | (temp >> (sizeof(float) << 3) - m_bits_offset));
+            }
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
+        public void Write(double value)
+        {
+            CheckWrite(sizeof(double));
+            if (m_bits_offset == 0)
+            {
+                *(double*)m_offset = value;
+                m_offset += sizeof(double);
+            }
+            else
+            {
+                var temp = *(ulong*)&value;
+                *(ulong*)m_offset = (byte)(*m_offset & ~(byte.MaxValue << m_bits_offset)) | (temp << m_bits_offset);
+                m_offset += sizeof(double);
+                *m_offset = (byte)((byte)(*m_offset & (byte.MaxValue << m_bits_offset)) | (temp >> (sizeof(double) << 3) - m_bits_offset));
+            }
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
+        public void Write(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                WriteVar(0);
+                return;
+            }
+            int maxLength = Encoding.UTF8.GetMaxByteCount(value.Length), length = 0;
+            var buffer = stackalloc byte[maxLength];
+            fixed (char* src = value)
+                length = Encoding.UTF8.GetBytes(src, value.Length, buffer, maxLength);
+            WriteVar((uint)length);
+            CheckWrite(length);
+            if (m_bits_offset == 0)
+                Buffer.MemoryCopy(buffer, m_offset, m_end - m_offset, length);
+            else Copy(buffer, this, length);
+            m_offset += length;
+            if (m_offset > m_length)
+                m_length = m_offset + (m_bits_offset == 0 ? 0 : 1);
+        }
+
+        public void WriteVar(int value)
+        {
+            var temp = (uint)(value << 1) ^ (uint)(value >> 31);
+            while (temp > 0x80)
+            {
+                Write((byte)((temp & 0x7F) | 0x80));
+                temp >>= 7;
+            }
+            Write((byte)temp);
+        }
+
+        public void WriteVar(uint value)
+        {
+            while (value > 0x80)
+            {
+                Write((byte)((value & 0x7F) | 0x80));
+                value >>= 7;
+            }
+            Write((byte)value);
+        }
+
+        public void Write(byte[] buffer)
+        {
+            Write(buffer, 0, buffer.Length);
+        }
+
+        public void Write(byte[] buffer, int offset)
+        {
+            Write(buffer, offset, buffer.Length - offset);
+        }
+
         public void Write(byte[] buffer, int offset, int length)
         {
             CheckBuffer(buffer, offset, length);
@@ -388,7 +485,7 @@ namespace Ghost.Network.Buffers
             {
                 if (m_bits_offset == 0)
                     Buffer.MemoryCopy(src, m_offset, m_end - m_offset, length);
-                else throw new NotImplementedException();
+                else Copy(src, this, length);
             }
             m_offset += length;
             if (m_offset > m_length)
@@ -407,6 +504,43 @@ namespace Ghost.Network.Buffers
         {
             if ((m_offset + length) > m_end)
                 DoExpand((int)((m_offset - m_start) + length));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Copy(byte* src, INetBuffer dest, int count)
+        {
+            for (var index = count >> 3; index > 0; index--, src += sizeof(long))
+                dest.Write(*(long*)src);
+            if ((count & 0x4) == 0x4)
+            {
+                dest.Write(*(int*)src);
+                src += sizeof(int);
+            }
+            for (var index = count & 0x3; index > 0; index--, src++)
+                dest.Write(*src);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Copy(INetBuffer src, byte* dest, int count)
+        {
+            for (var index = count >> 3; index > 0; index--, dest += sizeof(long))
+                *(long*)dest = src.ReadInt64();
+            if ((count & 0x4) == 0x4)
+            {
+                *(int*)dest = src.ReadInt32();
+                dest += sizeof(int);
+            }
+            for (var index = count & 0x3; index > 0; index--, dest++)
+                *dest = src.ReadByte();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Copy(INetBuffer src, INetBuffer dest, int count)
+        {
+            for (var index = count >> 3; index > 0; index--)
+                dest.Write(src.ReadInt64());
+            for (var index = count & 0x7; index > 0; index--)
+                dest.Write(src.ReadByte());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

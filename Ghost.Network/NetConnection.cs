@@ -1,22 +1,16 @@
 ﻿using System;
 using System.Net;
+using Ghost.Network.Utilities;
 
 namespace Ghost.Network
 {
-    public enum NetConnectionState
-    {
-        None,
-        Disconnected,
-
-
-        ConnectionInitiation,
-
-        AwaitingApproval
-    }
-
     public class NetConnection
     {
         private NetConnectionState m_state;
+        private INetSerializable m_hail;
+        private double m_remoteTimeOffset;
+        private double m_averageRoundtripTime;
+        private long m_remoteUniqueIdentifier;
 
         public NetPeer Peer
         {
@@ -24,7 +18,7 @@ namespace Ghost.Network
             private set;
         }
 
-        public DateTime LastPing
+        public double LastPing
         {
             get; set;
         }
@@ -35,19 +29,26 @@ namespace Ghost.Network
             private set;
         }
 
-        public DateTime ConnectionTime
+        public double ConnectionTime
         {
-            get; set;
+            get;
+            set;
         }
 
-        public bool AwaitingApproval
-        {
-            get => m_state == NetConnectionState.AwaitingApproval;
-        }
+        public NetConnectionState State => m_state;
 
         public NetConnection()
         {
             m_state = NetConnectionState.None;
+        }
+
+        public NetConnection Clean()
+        {
+            Peer = null;
+            RemoteEndPoint = null;
+            m_state = NetConnectionState.None;
+            m_hail = null;
+            return this;
         }
 
         public NetConnection Initialize(NetPeer peer, EndPoint remote, NetConnectionState state)
@@ -55,12 +56,12 @@ namespace Ghost.Network
             Peer = peer;
             RemoteEndPoint = remote;
             m_state = state;
+            m_hail = peer.CreateHail();
             return this;
         }
 
         public void Ping()
         {
-
 
         }
 
@@ -73,7 +74,7 @@ namespace Ghost.Network
         {
             if (ValidateHandshakeData(message))
             {
-
+                ConnectionTime = NetTime.Now;
             }
         }
 
@@ -82,21 +83,16 @@ namespace Ghost.Network
             try
             {
                 var remoteAppId = message.ReadString();
-                var remoteUID = message.ReadInt64();
-                var remoteTimeOffset = message.ReadSingle();
-                //InitializeRemoteTimeOffset(msg.ReadSingle());
+                m_remoteUniqueIdentifier = message.ReadInt64();
+                InitializeRemoteTimeOffset(message.ReadSingle());
                 if (message.Remaining > 0)
-                {
-
-                }
+                    m_hail?.OnDeserialize(message);
 
                 if (remoteAppId != Peer.Configuration.AppId)
                 {
                     //ExecuteDisconnect("Wrong application identifier!", true);
                     return false;
                 }
-
-                //m_remoteUniqueIdentifier = remoteUniqueIdentifier;
             }
             catch (Exception ex)
             {
@@ -106,6 +102,12 @@ namespace Ghost.Network
                 return false;
             }
             return true;
+        }
+
+        // this might happen more than once
+        internal void InitializeRemoteTimeOffset(float remoteSendTime)
+        {
+            m_remoteTimeOffset = (remoteSendTime + (m_averageRoundtripTime / 2.0)) - NetTime.Now;
         }
     }
 }

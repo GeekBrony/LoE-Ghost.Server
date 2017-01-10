@@ -1,5 +1,4 @@
-﻿using Ghost.Network.Buffers;
-using Ghost.Network.Utilities;
+﻿using Ghost.Network.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,34 +9,11 @@ using System.Threading.Tasks.Dataflow;
 
 namespace Ghost.Network
 {
-    public class NetPeerConfiguration
-    {
-        public string AppId
-        {
-            get; private set;
-        }
-
-        public bool CanAccept
-        {
-            get; private set;
-        }
-
-        public EndPoint BindPoint
-        {
-            get; set;
-        }
-
-        public NetPeerConfiguration(string appId, bool canAccept)
-        {
-            AppId = appId;
-            CanAccept = canAccept;
-        }
-    }
-
     public class NetPeer
     {
         private const int HeaderSize = 5;
         private static readonly EndPoint Any = new IPEndPoint(IPAddress.Any, 0);
+        private static readonly TimeSpan Infinity = TimeSpan.FromMilliseconds(-1);
 
         private Timer m_ping;
         private Timer m_heart;
@@ -75,12 +51,18 @@ namespace Ghost.Network
                 m_transform01.LinkTo(m_transform02, x => x.Type == NetMessageType.Special);
             }
         }
+        public INetSerializable CreateHail()
+        {
+            return null;
+        }
 
         public void Initialize(NetPeerConfiguration configuration)
         {
             Configuration = configuration;
             m_socket = new Socket(configuration.BindPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_socket.Bind(configuration.BindPoint);
+            m_ping.Change(Configuration.PingInterval, Infinity);
+            m_heart.Change(Configuration.HeartbeatInterval, Infinity);
             var args = Memory.GetReciveArgs();
             args.Completed += m_io_handler;
             if (!m_socket.ReceiveFromAsync(args))
@@ -92,8 +74,10 @@ namespace Ghost.Network
             foreach (var item in m_connections)
             {
                 var connection = item.Value;
-                connection.Ping();
+                if (connection.State > NetConnectionState.ConnectionInitiation)
+                    connection.Ping();
             }
+            m_ping.Change(Configuration.PingInterval, Infinity);
         }
 
         private void OnHeartTimerTick(object state)
@@ -101,28 +85,25 @@ namespace Ghost.Network
             foreach (var item in m_connections)
             {
                 var connection = item.Value;
-                //ToDo: use settings
-                if (connection.LastPing.AddSeconds(3) < DateTime.Now)
+                if (connection.State > NetConnectionState.ConnectionInitiation)
                 {
-                    connection.Disconect("Connection timed out!");
-                    if (m_connections.TryRemove(item.Key, out connection))
-                    {
-                        //ToDo: use logging
-                    }
+                    if ((connection.LastPing + Configuration.PingTimeout) < NetTime.Now)
+                        connection.Disconect("Connection timed out!");
                 }
-                if (connection.AwaitingApproval)
+                //ToDo: use settings
+                if (connection.State == NetConnectionState.AwaitingApproval)
                 {
                     //ToDo: use settings
-                    if (connection.ConnectionTime.AddSeconds(10) < DateTime.Now)
-                    {
+                    if ((connection.ConnectionTime + Configuration.ConnectionTimeout) < NetTime.Now)
                         connection.Disconect("Connection timed out!");
-                        if (m_connections.TryRemove(item.Key, out connection))
-                        {
-                            //ToDo: use logging
-                        }
-                    }
+                }
+                else if (connection.State == NetConnectionState.Disconnected)
+                {
+                    if (m_connections.TryRemove(item.Key, out connection))
+                        Memory.Free(connection.Clean());
                 }
             }
+            m_heart.Change(Configuration.HeartbeatInterval, Infinity);
         }
 
         private void ProcessFlow(INetMessage message)
