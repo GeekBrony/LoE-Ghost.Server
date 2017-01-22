@@ -35,14 +35,14 @@ namespace Ghost.Data.Entities
         public virtual void OnDeserialize(INetMessage message)
         {
             Visual.OnDeserialize(message);
-            //Level = message.ReadInt16();
+            Level = message.ReadInt16();
             Id = message.ReadInt32();
         }
 
         public virtual void OnSerialize(INetMessage message)
         {
             Visual.OnSerialize(message);
-            //message.Write(Level);
+            message.Write(Level);
             message.Write(Id);
         }
     }

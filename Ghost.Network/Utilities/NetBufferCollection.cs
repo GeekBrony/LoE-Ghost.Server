@@ -5,14 +5,14 @@ using System.Collections.Generic;
 
 namespace Ghost.Network.Utilities
 {
-    internal class NetBufferCollection<T> : IEnumerable<T>, IEnumerator<T>
-        where T : INetBuffer
+    internal class NetMessageCollection<T> : IEnumerable<T>, IEnumerator<T>
+        where T : INetMessage
     {
         private const int GrowthCount = 8;
 
-        private static readonly ObjectPool<NetBufferCollection<T>> s_pool = new ObjectPool<NetBufferCollection<T>>(128, () => new NetBufferCollection<T>(GrowthCount));
+        private static readonly ObjectPool<NetMessageCollection<T>> s_pool = new ObjectPool<NetMessageCollection<T>>(128, () => new NetMessageCollection<T>(GrowthCount));
 
-        public static NetBufferCollection<T> Allocate()
+        public static NetMessageCollection<T> Allocate()
         {
             return s_pool.Allocate();
         }
@@ -41,7 +41,7 @@ namespace Ghost.Network.Utilities
             }
         }
 
-        private NetBufferCollection(int capacity)
+        private NetMessageCollection(int capacity)
         {
             m_position = -1;
             m_collection = new T[capacity];

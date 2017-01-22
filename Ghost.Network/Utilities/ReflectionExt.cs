@@ -33,7 +33,7 @@ namespace Ghost.Network.Utilities
 
             static NetMessageChache()
             {
-                var methods = typeof(INetBuffer).GetMethods();
+                var methods = typeof(INetMessage).GetMethods();
                 s_read_chache = methods.Where(x => 
                 {
                     return x.Name.StartsWith(ReadName) && x.ReturnType.Name == x.Name.Substring(ReadName.Length) && x.GetParameters().Length == 0;

@@ -90,10 +90,8 @@ namespace Ghost.Network
                     if ((connection.LastPing + Configuration.PingTimeout) < NetTime.Now)
                         connection.Disconect("Connection timed out!");
                 }
-                //ToDo: use settings
                 if (connection.State == NetConnectionState.AwaitingApproval)
                 {
-                    //ToDo: use settings
                     if ((connection.ConnectionTime + Configuration.ConnectionTimeout) < NetTime.Now)
                         connection.Disconect("Connection timed out!");
                 }
@@ -109,7 +107,6 @@ namespace Ghost.Network
         private void ProcessFlow(INetMessage message)
         {
             var connection = message.Sender;
-            var test = message.Debug();
             switch (message.Type)
             {
                 case NetMessageType.Connect:
@@ -162,16 +159,16 @@ namespace Ghost.Network
                         NetIOComplete(m_socket, newArgs);
                     break;
                 case SocketAsyncOperation.SendTo:
-                    (args.UserToken as INetMessage)?.Free();
+                    if (args.UserToken is INetMessage message) message.Free();
                     break;
             }
         }
 
         private IEnumerable<INetMessage> TransformFlow(SocketAsyncEventArgs args)
         {
-            var buffer = (INetBuffer)args.UserToken;
+            var buffer = (INetMessage)args.UserToken;
             buffer.Length = args.BytesTransferred;
-            var collection = NetBufferCollection<INetMessage>.Allocate();
+            var collection = NetMessageCollection<INetMessage>.Allocate();
             var connection = m_connections.GetOrAdd(args.RemoteEndPoint, Generate);
             while (buffer.Remaining > HeaderSize)
             {
